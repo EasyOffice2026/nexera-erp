@@ -80,9 +80,9 @@ npm run dev           # API on :3000, web on :5173
 Docker Hub may rate-limit pulls; `docker pull mirror.gcr.io/library/postgres:17` and tag it
 `postgres:17` if `infra:up` fails with 429.
 
-## Still to ask the owner
+## Owner answers
 
-- Answered: both companies started operations in 2026, so FY2026 is their first report. There are no
+- Both companies started operations in 2026, so FY2026 is their first report. There are no
   earlier audited statements; opening balances are the capital introduced.
-- Answered: deploy on Fly.io with PostgreSQL on Supabase (a project of its own). Demo: app
+- Deploy on Fly.io with PostgreSQL on Supabase (a project of its own). Demo: app
   `nexera-erp` (region `sin`), https://nexera-erp.fly.dev/, demo tenant loaded with `npm run db:seed`.
