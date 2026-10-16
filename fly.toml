@@ -1,6 +1,6 @@
 # Fly.io deployment. Secrets (set with `flyctl secrets set`): DATABASE_URL, JWT_ACCESS_SECRET.
 app = "nexera-erp"
-primary_region = "fra"
+primary_region = "sin"
 
 [build]
   dockerfile = "Dockerfile"
