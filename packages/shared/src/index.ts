@@ -1,6 +1,7 @@
 export * from './accounts';
 export * from './auth';
 export * from './companies';
+export * from './dashboard';
 export * from './errors';
 export * from './journals';
 export * from './localized';
