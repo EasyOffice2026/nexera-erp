@@ -82,6 +82,7 @@ Docker Hub may rate-limit pulls; `docker pull mirror.gcr.io/library/postgres:17`
 
 ## Still to ask the owner
 
-- Auditor name and last audited financial statements (to match the chart of accounts and
-  opening balances).
-- Where to deploy (Fly.io like the current system?) and which PostgreSQL provider.
+- Answered: both companies started operations in 2026, so FY2026 is their first report. There are no
+  earlier audited statements; opening balances are the capital introduced.
+- Answered: deploy on Fly.io with PostgreSQL on Supabase (a project of its own). Demo: app
+  `nexera-erp` (region `sin`), https://nexera-erp.fly.dev/, demo tenant loaded with `npm run db:seed`.
