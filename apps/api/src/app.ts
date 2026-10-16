@@ -27,6 +27,8 @@ import {
   createGroupReportsRouter,
 } from './modules/reports/advanced-reports.router';
 import { createAdvancedReportsService } from './modules/reports/advanced-reports.service';
+import { createBankRouter } from './modules/bank/bank.router';
+import { createBankService } from './modules/bank/bank.service';
 import { createXbrlRouter } from './modules/xbrl/xbrl.router';
 import { createXbrlService } from './modules/xbrl/xbrl.service';
 import { createReportsRouter } from './modules/reports/reports.router';
@@ -89,7 +91,12 @@ export function createApp({ prisma, config, hasher, now, log }: AppDeps) {
   app.use('/api', securityHeaders({ https }));
   app.use(requestLog(log ?? (config.nodeEnv === 'test' ? () => {} : writeJsonLine)));
   // A journal may have up to 500 lines.
-  app.use(express.json({ limit: '1mb' }));
+  // Bank statements arrive as rows of text and may be larger than other requests.
+  const json = express.json({ limit: '1mb' });
+  const statementJson = express.json({ limit: '15mb' });
+  app.use((req, res, next) =>
+    (req.path.endsWith('/statements') ? statementJson : json)(req, res, next),
+  );
 
   const tokens = createTokenService(config);
   const passwordHasher = hasher ?? createPasswordHasher(hashProfiles[config.passwordHashProfile]);
@@ -122,6 +129,11 @@ export function createApp({ prisma, config, hasher, now, log }: AppDeps) {
     '/companies/:companyId/reports',
     auth,
     createReportsRouter(createReportsService({ prisma })),
+  );
+  v1.use(
+    '/companies/:companyId/bank',
+    auth,
+    createBankRouter(createBankService({ prisma, ...(now ? { now } : {}) })),
   );
   const advancedReports = createAdvancedReportsService({ prisma });
   v1.use('/companies/:companyId/reports', auth, createAdvancedReportsRouter(advancedReports));

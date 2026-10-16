@@ -57,6 +57,7 @@ enum JournalSource {
   OPENING
   REVERSAL
   INTEGRATION
+  BANK
 
   @@map("journal_source")
 }
@@ -125,13 +126,14 @@ model Company {
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant      Tenant         @relation(fields: [tenantId], references: [id])
-  brands      Brand[]
-  branches    Branch[]
-  accounts    Account[]
-  fiscalYears FiscalYear[]
-  periods     Period[]
-  journals    JournalEntry[]
+  tenant       Tenant         @relation(fields: [tenantId], references: [id])
+  brands       Brand[]
+  branches     Branch[]
+  accounts     Account[]
+  fiscalYears  FiscalYear[]
+  periods      Period[]
+  journals     JournalEntry[]
+  bankAccounts BankAccount[]
 
   @@unique([tenantId, crNumber])
   @@index([tenantId])
@@ -193,6 +195,7 @@ model Account {
   parent   Account?      @relation("AccountTree", fields: [parentId], references: [id])
   children Account[]     @relation("AccountTree")
   lines    JournalLine[]
+  bank     BankAccount?
 
   @@unique([companyId, code])
   @@map("accounts")
@@ -282,9 +285,10 @@ model JournalLine {
   debit       Decimal @default(0) @db.Decimal(18, 3)
   credit      Decimal @default(0) @db.Decimal(18, 3)
 
-  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  account Account      @relation(fields: [accountId], references: [id])
-  branch  Branch?      @relation(fields: [branchId], references: [id])
+  entry    JournalEntry       @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account  Account            @relation(fields: [accountId], references: [id])
+  branch   Branch?            @relation(fields: [branchId], references: [id])
+  bankLine BankStatementLine?
 
   @@unique([entryId, lineNo])
   @@index([accountId])
@@ -304,4 +308,132 @@ model AuditLog {
 
   @@index([tenantId, createdAt])
   @@map("audit_logs")
+}
+
+enum BankDirection {
+  ANY
+  IN
+  OUT
+
+  @@map("bank_direction")
+}
+
+// A bank account at a bank, linked to its account in the chart. Statement amounts are signed:
+// positive is money into the bank.
+model BankAccount {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  tenantId        String    @map("tenant_id") @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  accountId       String    @unique @map("account_id") @db.Uuid
+  bankName        String    @map("bank_name")
+  accountNumber   String    @default("") @map("account_number")
+  currency        String    @default("KWD")
+  // The balance at the bank before the first imported statement line.
+  openingBalance  Decimal   @default(0) @map("opening_balance") @db.Decimal(18, 3)
+  // The column mapping of this bank's statement file, remembered from the last import.
+  mapping         Json?
+  // Statement lines and bank-account postings up to this date are reconciled and locked.
+  reconciledUntil DateTime? @map("reconciled_until") @db.Date
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company         Company              @relation(fields: [companyId], references: [id])
+  account         Account              @relation(fields: [accountId], references: [id])
+  statements      BankStatement[]
+  lines           BankStatementLine[]
+  rules           BankRule[]
+  reconciliations BankReconciliation[]
+
+  @@index([companyId])
+  @@map("bank_accounts")
+}
+
+model BankStatement {
+  id            String   @id @default(uuid(7)) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  companyId     String   @map("company_id") @db.Uuid
+  bankAccountId String   @map("bank_account_id") @db.Uuid
+  fileName      String   @map("file_name")
+  fromDate      DateTime @map("from_date") @db.Date
+  toDate        DateTime @map("to_date") @db.Date
+  lineCount     Int      @map("line_count")
+  importedById  String?  @map("imported_by_id") @db.Uuid
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  bankAccount BankAccount         @relation(fields: [bankAccountId], references: [id])
+  lines       BankStatementLine[]
+
+  @@index([bankAccountId])
+  @@map("bank_statements")
+}
+
+model BankStatementLine {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tenantId      String    @map("tenant_id") @db.Uuid
+  companyId     String    @map("company_id") @db.Uuid
+  bankAccountId String    @map("bank_account_id") @db.Uuid
+  statementId   String    @map("statement_id") @db.Uuid
+  // The place of the line within its statement, oldest first.
+  lineNo        Int       @map("line_no")
+  date          DateTime  @db.Date
+  description   String
+  reference     String    @default("")
+  amount        Decimal   @db.Decimal(18, 3)
+  balance       Decimal?  @db.Decimal(18, 3)
+  // Date, amount, texts and the occurrence number, so importing the same file twice adds nothing.
+  fingerprint   String
+  journalLineId String?   @unique @map("journal_line_id") @db.Uuid
+  ruleId        String?   @map("rule_id") @db.Uuid
+  matchedById   String?   @map("matched_by_id") @db.Uuid
+  matchedAt     DateTime? @map("matched_at") @db.Timestamptz(3)
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  bankAccount BankAccount   @relation(fields: [bankAccountId], references: [id])
+  statement   BankStatement @relation(fields: [statementId], references: [id])
+  journalLine JournalLine?  @relation(fields: [journalLineId], references: [id])
+  rule        BankRule?     @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  @@unique([bankAccountId, fingerprint])
+  @@index([bankAccountId, date])
+  @@map("bank_statement_lines")
+}
+
+// "Description contains KNET -> KNET receivable": a journal is created for matching lines.
+model BankRule {
+  id            String        @id @default(uuid(7)) @db.Uuid
+  tenantId      String        @map("tenant_id") @db.Uuid
+  companyId     String        @map("company_id") @db.Uuid
+  bankAccountId String?       @map("bank_account_id") @db.Uuid
+  name          String
+  contains      String
+  direction     BankDirection @default(ANY)
+  accountId     String        @map("account_id") @db.Uuid
+  branchId      String?       @map("branch_id") @db.Uuid
+  priority      Int           @default(100)
+  isActive      Boolean       @default(true) @map("is_active")
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  bankAccount BankAccount?        @relation(fields: [bankAccountId], references: [id])
+  lines       BankStatementLine[]
+
+  @@index([companyId])
+  @@map("bank_rules")
+}
+
+model BankReconciliation {
+  id               String   @id @default(uuid(7)) @db.Uuid
+  tenantId         String   @map("tenant_id") @db.Uuid
+  companyId        String   @map("company_id") @db.Uuid
+  bankAccountId    String   @map("bank_account_id") @db.Uuid
+  asOf             DateTime @map("as_of") @db.Date
+  statementBalance Decimal  @map("statement_balance") @db.Decimal(18, 3)
+  bookBalance      Decimal  @map("book_balance") @db.Decimal(18, 3)
+  createdById      String?  @map("created_by_id") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  bankAccount BankAccount @relation(fields: [bankAccountId], references: [id])
+
+  @@unique([bankAccountId, asOf])
+  @@map("bank_reconciliations")
 }

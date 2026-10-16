@@ -8,6 +8,7 @@ import { createPrismaClient } from '../src/lib/prisma';
 import type { Actor } from '../src/middleware/authenticate';
 import { createCompaniesService } from '../src/modules/companies/companies.service';
 import { createJournalsService } from '../src/modules/journals/journals.service';
+import { createBankService } from '../src/modules/bank/bank.service';
 import { createPeriodsService } from '../src/modules/periods/periods.service';
 
 if (process.env.NODE_ENV === 'production') {
@@ -26,6 +27,11 @@ async function removeTenant(slug: string) {
   const tenant = await prisma.tenant.findUnique({ where: { slug } });
   if (!tenant) return;
   const tenantId = tenant.id;
+  await prisma.bankStatementLine.deleteMany({ where: { tenantId } });
+  await prisma.bankStatement.deleteMany({ where: { tenantId } });
+  await prisma.bankRule.deleteMany({ where: { tenantId } });
+  await prisma.bankReconciliation.deleteMany({ where: { tenantId } });
+  await prisma.bankAccount.deleteMany({ where: { tenantId } });
   await prisma.journalLine.deleteMany({ where: { entry: { tenantId } } });
   await prisma.journalEntry.updateMany({ where: { tenantId }, data: { reversesId: null } });
   await prisma.journalEntry.deleteMany({ where: { tenantId } });
@@ -85,6 +91,7 @@ try {
   const companiesService = createCompaniesService({ prisma });
   const periods = createPeriodsService({ prisma });
   const journals = createJournalsService({ prisma });
+  const bank = createBankService({ prisma });
 
   for (const input of companies) {
     const company = await companiesService.create(actor, {
@@ -188,6 +195,79 @@ try {
       const draft = await journals.createDraft(actor, company.id, entry);
       await journals.post(actor, company.id, draft.id);
     }
+
+    // The main bank account with a statement for January to September, bank charges included.
+    const bankAccount = await bank.createAccount(actor, company.id, {
+      accountId: id('1130'),
+      bankName: input.crNumber.endsWith('1')
+        ? 'National Bank of Kuwait (NBK)'
+        : 'Kuwait Finance House (KFH)',
+      accountNumber: `****${input.crNumber.slice(-4)}`,
+      openingBalance: '0',
+    });
+    const charges = accounts.find((row) => row.taxonomyConcept?.includes('BankAndSimilarCharges'))!;
+    await bank.createRule(actor, company.id, {
+      name: 'Bank charges',
+      contains: 'charges',
+      direction: 'OUT',
+      accountId: charges.id,
+      branchId: null,
+      bankAccountId: null,
+      priority: 100,
+      isActive: true,
+    });
+    const bookLines = await prisma.journalLine.findMany({
+      where: {
+        accountId: id('1130'),
+        entry: { companyId: company.id, status: 'POSTED', date: { lt: new Date('2026-09-30') } },
+      },
+      include: { entry: true },
+    });
+    const moves = [
+      ...bookLines.map((row) => ({
+        date: new Date(row.entry.date.getTime() + 86_400_000),
+        text: row.entry.description.toUpperCase(),
+        reference: row.entry.reference,
+        fils: toFils(row.debit.toFixed(3)) - toFils(row.credit.toFixed(3)),
+      })),
+      ...Array.from({ length: 9 }, (_, month) => ({
+        date: new Date(Date.UTC(2026, month, 28)),
+        text: 'BANK CHARGES',
+        reference: '',
+        fils: -3_500n,
+      })),
+    ].sort((a, b) => a.date.getTime() - b.date.getTime());
+    const dmy = (date: Date) => date.toISOString().slice(0, 10).split('-').reverse().join('/');
+    let running = 0n;
+    const rows = [['Date', 'Description', 'Reference', 'Debit', 'Credit', 'Balance']];
+    for (const move of moves) {
+      running += move.fils;
+      rows.push([
+        dmy(move.date),
+        move.text,
+        move.reference,
+        move.fils < 0n ? fromFils(-move.fils) : '',
+        move.fils > 0n ? fromFils(move.fils) : '',
+        fromFils(running),
+      ]);
+    }
+    await bank.importStatement(actor, company.id, bankAccount.id, {
+      fileName: 'demo-statement-2026-01-to-09.csv',
+      rows,
+      mapping: {
+        headerRow: 0,
+        date: 0,
+        dateOrder: 'DMY',
+        description: 1,
+        reference: 2,
+        amountMode: 'split',
+        amount: null,
+        moneyOut: 3,
+        moneyIn: 4,
+        balance: 5,
+        negate: false,
+      },
+    });
   }
 
   console.log(`Demo tenant "${TENANT}" ready. Sign in with any of:`);

@@ -11,6 +11,7 @@ import { PeriodsPage } from '../features/periods/PeriodsPage';
 import { LedgerPage } from '../features/reports/LedgerPage';
 import { ReportsPage } from '../features/reports/ReportsPage';
 import { XbrlPage } from '../features/xbrl/XbrlPage';
+import { BankPage } from '../features/bank/BankPage';
 import { useCompanies } from './company';
 import { Layout } from './Layout';
 
@@ -46,6 +47,7 @@ export const routes: RouteObject[] = [
               { path: 'reports', element: <ReportsPage /> },
               { path: 'reports/ledger/:accountId', element: <LedgerPage /> },
               { path: 'xbrl', element: <XbrlPage /> },
+              { path: 'bank', element: <BankPage /> },
             ],
           },
         ],

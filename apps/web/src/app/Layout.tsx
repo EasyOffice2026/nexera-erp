@@ -5,7 +5,15 @@ import { useAuth } from '../features/auth/auth-context';
 import { LanguageSwitcher } from '../i18n/LanguageSwitcher';
 import { useCompanies, useName } from './company';
 
-const sections = ['dashboard', 'journals', 'accounts', 'periods', 'reports', 'xbrl'] as const;
+const sections = [
+  'dashboard',
+  'journals',
+  'accounts',
+  'periods',
+  'bank',
+  'reports',
+  'xbrl',
+] as const;
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `rounded-md px-3 py-1.5 text-sm ${
