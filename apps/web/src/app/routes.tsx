@@ -4,6 +4,7 @@ import { AccountsPage } from '../features/accounts/AccountsPage';
 import { LoginPage } from '../features/auth/LoginPage';
 import { RequireAuth } from '../features/auth/RequireAuth';
 import { CompaniesPage } from '../features/companies/CompaniesPage';
+import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { JournalPage } from '../features/journals/JournalPage';
 import { JournalsPage } from '../features/journals/JournalsPage';
 import { PeriodsPage } from '../features/periods/PeriodsPage';
@@ -12,13 +13,13 @@ import { ReportsPage } from '../features/reports/ReportsPage';
 import { useCompanies } from './company';
 import { Layout } from './Layout';
 
-// Opens the books of the first company, or the companies page when there is none yet.
+// Opens the dashboard of the first company, or the companies page when there is none yet.
 function Home() {
   const companies = useCompanies();
   if (companies.isPending) return <Loading />;
   if (companies.error) return <ErrorText error={companies.error} />;
   const first = companies.data[0];
-  return <Navigate to={first ? `/c/${first.id}/journals` : '/companies'} replace />;
+  return <Navigate to={first ? `/c/${first.id}/dashboard` : '/companies'} replace />;
 }
 
 export const routes: RouteObject[] = [
@@ -34,7 +35,8 @@ export const routes: RouteObject[] = [
           {
             path: 'c/:companyId',
             children: [
-              { index: true, element: <Navigate to="journals" replace /> },
+              { index: true, element: <Navigate to="dashboard" replace /> },
+              { path: 'dashboard', element: <DashboardPage /> },
               { path: 'accounts', element: <AccountsPage /> },
               { path: 'journals', element: <JournalsPage /> },
               { path: 'journals/new', element: <JournalPage /> },

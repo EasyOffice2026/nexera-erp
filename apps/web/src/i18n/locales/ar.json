@@ -1,5 +1,7 @@
 {
-  "app": { "name": "نكسيرا ERP" },
+  "app": {
+    "name": "نكسيرا ERP"
+  },
   "common": {
     "loading": "جارٍ التحميل…",
     "save": "حفظ",
@@ -45,12 +47,48 @@
     "signOut": "تسجيل الخروج"
   },
   "nav": {
+    "dashboard": "لوحة المعلومات",
     "companies": "الشركات",
     "accounts": "دليل الحسابات",
     "journals": "القيود",
     "periods": "الفترات",
     "reports": "التقارير",
     "company": "الشركة"
+  },
+  "dashboard": {
+    "thisMonth": "هذا الشهر",
+    "yearToDate": "منذ بداية السنة",
+    "previousMonth": "الشهر السابق",
+    "revenue": "الإيرادات",
+    "grossProfit": "مجمل الربح",
+    "expenses": "المصروفات التشغيلية",
+    "allExpenses": "المصروفات",
+    "netProfit": "صافي الربح",
+    "receivables": "الذمم المدينة",
+    "payables": "الذمم الدائنة",
+    "cash": "النقد والبنوك",
+    "trend": "آخر 12 شهراً",
+    "revenueByBranch": "الإيرادات حسب الفرع",
+    "revenueByBrand": "الإيرادات حسب العلامة التجارية",
+    "revenueByChannel": "الإيرادات حسب قناة البيع",
+    "topExpenses": "أكبر المصروفات",
+    "noData": "لا توجد قيود مرحّلة بعد.",
+    "unassigned": "بدون فرع",
+    "alerts": {
+      "drafts_zero": "لا توجد مسودات",
+      "drafts_one": "قيد مسودة واحد لم يُرحّل بعد",
+      "drafts_two": "قيدا مسودة لم يُرحّلا بعد",
+      "drafts_few": "{{count}} قيود مسودة لم تُرحّل بعد",
+      "drafts_many": "{{count}} قيداً مسودة لم تُرحّل بعد",
+      "drafts_other": "{{count}} قيد مسودة لم يُرحّل بعد",
+      "unclosed_zero": "لا توجد أشهر مفتوحة",
+      "unclosed_one": "شهر سابق واحد ما زال مفتوحاً",
+      "unclosed_two": "شهران سابقان ما زالا مفتوحين",
+      "unclosed_few": "{{count}} أشهر سابقة ما زالت مفتوحة",
+      "unclosed_many": "{{count}} شهراً سابقاً ما زالت مفتوحة",
+      "unclosed_other": "{{count}} شهر سابق ما زال مفتوحاً",
+      "noPeriod": "لا توجد فترة مفتوحة تشمل هذا التاريخ، فلا يمكن الترحيل عليه"
+    }
   },
   "companies": {
     "title": "الشركات",
@@ -115,7 +153,10 @@
     "postedAt": "تاريخ الترحيل",
     "draft": "مسودة"
   },
-  "journalStatus": { "DRAFT": "مسودة", "POSTED": "مرحّل" },
+  "journalStatus": {
+    "DRAFT": "مسودة",
+    "POSTED": "مرحّل"
+  },
   "journalSource": {
     "MANUAL": "يدوي",
     "OPENING": "أرصدة افتتاحية",
@@ -131,7 +172,10 @@
     "reopen": "إعادة فتح",
     "empty": "لا توجد سنة مالية بعد. افتح سنة قبل ترحيل القيود."
   },
-  "periodStatus": { "OPEN": "مفتوحة", "CLOSED": "مقفلة" },
+  "periodStatus": {
+    "OPEN": "مفتوحة",
+    "CLOSED": "مقفلة"
+  },
   "reports": {
     "title": "التقارير",
     "trialBalance": "ميزان المراجعة",

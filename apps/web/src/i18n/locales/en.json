@@ -1,5 +1,7 @@
 {
-  "app": { "name": "Nexera ERP" },
+  "app": {
+    "name": "Nexera ERP"
+  },
   "common": {
     "loading": "Loading…",
     "save": "Save",
@@ -45,12 +47,40 @@
     "signOut": "Sign out"
   },
   "nav": {
+    "dashboard": "Dashboard",
     "companies": "Companies",
     "accounts": "Chart of accounts",
     "journals": "Journals",
     "periods": "Periods",
     "reports": "Reports",
     "company": "Company"
+  },
+  "dashboard": {
+    "thisMonth": "This month",
+    "yearToDate": "Year to date",
+    "previousMonth": "Previous month",
+    "revenue": "Revenue",
+    "grossProfit": "Gross profit",
+    "expenses": "Operating expenses",
+    "allExpenses": "Expenses",
+    "netProfit": "Net profit",
+    "receivables": "Receivables",
+    "payables": "Payables",
+    "cash": "Cash and bank",
+    "trend": "Last 12 months",
+    "revenueByBranch": "Revenue by branch",
+    "revenueByBrand": "Revenue by brand",
+    "revenueByChannel": "Revenue by sales channel",
+    "topExpenses": "Largest expenses",
+    "noData": "Nothing posted yet.",
+    "unassigned": "No branch",
+    "alerts": {
+      "drafts_one": "{{count}} draft journal is not posted yet",
+      "drafts_other": "{{count}} draft journals are not posted yet",
+      "unclosed_one": "{{count}} past month is still open",
+      "unclosed_other": "{{count}} past months are still open",
+      "noPeriod": "No open period covers this date, so nothing can be posted on it"
+    }
   },
   "companies": {
     "title": "Companies",
@@ -115,7 +145,10 @@
     "postedAt": "Posted at",
     "draft": "Draft"
   },
-  "journalStatus": { "DRAFT": "Draft", "POSTED": "Posted" },
+  "journalStatus": {
+    "DRAFT": "Draft",
+    "POSTED": "Posted"
+  },
   "journalSource": {
     "MANUAL": "Manual",
     "OPENING": "Opening balances",
@@ -131,7 +164,10 @@
     "reopen": "Reopen",
     "empty": "No financial year yet. Open one before posting journals."
   },
-  "periodStatus": { "OPEN": "Open", "CLOSED": "Closed" },
+  "periodStatus": {
+    "OPEN": "Open",
+    "CLOSED": "Closed"
+  },
   "reports": {
     "title": "Reports",
     "trialBalance": "Trial balance",
