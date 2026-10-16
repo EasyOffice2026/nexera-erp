@@ -42,3 +42,7 @@ npm run check         # format, lint, typecheck, tests (needs the database), bui
 migrations when it starts. It needs `DATABASE_URL` and `JWT_ACCESS_SECRET` (32+ random
 characters); see `.env.example`. Create each customer with
 `npm run tenant:create -- --slug <slug> --name <name> --email <email> --full-name <name>`.
+
+On Fly.io (`fly.toml`): set `DATABASE_URL` and `JWT_ACCESS_SECRET` with `flyctl secrets set`, then
+`flyctl deploy --remote-only`. To load the demo tenant into a demo database, run
+`DATABASE_URL=... DEMO_PASSWORD=... npm run db:seed -w @nexera/api` from your machine.

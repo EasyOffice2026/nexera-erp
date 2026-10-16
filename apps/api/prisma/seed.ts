@@ -13,7 +13,8 @@ if (process.env.NODE_ENV === 'production') {
   throw new Error('The demo seed must not run in production.');
 }
 
-const DEV_PASSWORD = 'DevPassw0rd!';
+// A demo database reachable from the internet should set DEMO_PASSWORD to one of its own.
+const DEV_PASSWORD = process.env.DEMO_PASSWORD ?? 'DevPassw0rd!';
 const TENANT = 'easyoffice';
 
 const config = loadConfig();
