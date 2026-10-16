@@ -1,8 +1,43 @@
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router';
 import { useBranches, useCompanyId, useName } from '../../app/company';
 import { Field, inputClass } from '../../components/ui';
 import { today } from '../../lib/format';
+
+export const presets = [
+  'thisMonth',
+  'lastMonth',
+  'thisQuarter',
+  'lastQuarter',
+  'yearToDate',
+  'lastYear',
+] as const;
+export type Preset = (typeof presets)[number];
+
+const iso = (year: number, month: number, day: number) =>
+  new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
+
+// The from and to dates of a ready-made period, counted from the given day.
+export function presetRange(preset: Preset, on: string): { from: string; to: string } {
+  const year = Number(on.slice(0, 4));
+  const month = Number(on.slice(5, 7)) - 1;
+  const quarter = Math.floor(month / 3) * 3;
+  switch (preset) {
+    case 'thisMonth':
+      return { from: iso(year, month, 1), to: iso(year, month + 1, 0) };
+    case 'lastMonth':
+      return { from: iso(year, month - 1, 1), to: iso(year, month, 0) };
+    case 'thisQuarter':
+      return { from: iso(year, quarter, 1), to: iso(year, quarter + 3, 0) };
+    case 'lastQuarter':
+      return { from: iso(year, quarter - 3, 1), to: iso(year, quarter, 0) };
+    case 'yearToDate':
+      return { from: iso(year, 0, 1), to: on };
+    case 'lastYear':
+      return { from: iso(year - 1, 0, 1), to: iso(year - 1, 11, 31) };
+  }
+}
 
 export interface ReportRange {
   from: string;
@@ -30,7 +65,15 @@ export function useReportRange(): [ReportRange, (change: Partial<ReportRange>) =
   return [range, update];
 }
 
-export function ReportFilters({ asOfOnly = false }: { asOfOnly?: boolean }) {
+export function ReportFilters({
+  asOfOnly = false,
+  withBranch = true,
+  children,
+}: {
+  asOfOnly?: boolean;
+  withBranch?: boolean;
+  children?: ReactNode;
+}) {
   const { t } = useTranslation();
   const companyId = useCompanyId();
   const branches = useBranches(companyId);
@@ -38,7 +81,31 @@ export function ReportFilters({ asOfOnly = false }: { asOfOnly?: boolean }) {
   const [range, update] = useReportRange();
 
   return (
-    <div className="mb-4 flex flex-wrap items-end gap-3">
+    <div className="mb-4 flex flex-wrap items-end gap-3 print:hidden">
+      {!asOfOnly && (
+        <Field label={t('reports.preset')}>
+          <select
+            className={inputClass}
+            value={
+              presets.find((preset) => {
+                const r = presetRange(preset, today());
+                return r.from === range.from && r.to === range.to;
+              }) ?? ''
+            }
+            onChange={(e) => {
+              const preset = presets.find((value) => value === e.target.value);
+              if (preset) update(presetRange(preset, today()));
+            }}
+          >
+            <option value="">{t('reports.presets.custom')}</option>
+            {presets.map((preset) => (
+              <option key={preset} value={preset}>
+                {t(`reports.presets.${preset}`)}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       {!asOfOnly && (
         <Field label={t('common.from')}>
           <input
@@ -57,20 +124,23 @@ export function ReportFilters({ asOfOnly = false }: { asOfOnly?: boolean }) {
           onChange={(e) => update({ to: e.target.value })}
         />
       </Field>
-      <Field label={t('common.branch')}>
-        <select
-          className={inputClass}
-          value={range.branchId}
-          onChange={(e) => update({ branchId: e.target.value })}
-        >
-          <option value="">{t('common.allBranches')}</option>
-          {branches.data?.map((branch) => (
-            <option key={branch.id} value={branch.id}>
-              {name(branch.name)}
-            </option>
-          ))}
-        </select>
-      </Field>
+      {withBranch && (
+        <Field label={t('common.branch')}>
+          <select
+            className={inputClass}
+            value={range.branchId}
+            onChange={(e) => update({ branchId: e.target.value })}
+          >
+            <option value="">{t('common.allBranches')}</option>
+            {branches.data?.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {name(branch.name)}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
+      {children}
     </div>
   );
 }
