@@ -1,0 +1,5 @@
+@import 'tailwindcss';
+
+html {
+  font-family: system-ui, 'Segoe UI', Tahoma, 'Noto Sans Arabic', sans-serif;
+}
