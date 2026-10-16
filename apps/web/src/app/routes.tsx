@@ -10,6 +10,7 @@ import { JournalsPage } from '../features/journals/JournalsPage';
 import { PeriodsPage } from '../features/periods/PeriodsPage';
 import { LedgerPage } from '../features/reports/LedgerPage';
 import { ReportsPage } from '../features/reports/ReportsPage';
+import { XbrlPage } from '../features/xbrl/XbrlPage';
 import { useCompanies } from './company';
 import { Layout } from './Layout';
 
@@ -44,6 +45,7 @@ export const routes: RouteObject[] = [
               { path: 'periods', element: <PeriodsPage /> },
               { path: 'reports', element: <ReportsPage /> },
               { path: 'reports/ledger/:accountId', element: <LedgerPage /> },
+              { path: 'xbrl', element: <XbrlPage /> },
             ],
           },
         ],

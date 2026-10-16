@@ -53,7 +53,8 @@
     "journals": "Journals",
     "periods": "Periods",
     "reports": "Reports",
-    "company": "Company"
+    "company": "Company",
+    "xbrl": "XBRL"
   },
   "dashboard": {
     "thisMonth": "This month",
@@ -265,6 +266,35 @@
     "INVALID_BRANCH": "Use an active branch of this company.",
     "JOURNAL_POSTED": "A posted journal cannot be changed. Reverse it instead.",
     "JOURNAL_ALREADY_REVERSED": "This journal is already reversed.",
-    "REVERSAL_BEFORE_ORIGINAL": "A reversal cannot be dated before the journal."
+    "REVERSAL_BEFORE_ORIGINAL": "A reversal cannot be dated before the journal.",
+    "XBRL_NOT_READY": "The statements do not pass the XBRL checks yet. Fix the items marked ✗ first.",
+    "INVALID_RANGE": "The start date must not be after the end date."
+  },
+  "xbrl": {
+    "title": "XBRL file",
+    "intro": "Prepares the XBRL file of this company from its posted financial statements. Each company (each CR) gets its own file. Fix every item marked ✗, then download the file.",
+    "from": "From",
+    "to": "To",
+    "download": "Download XBRL file",
+    "legalName": "Legal name",
+    "crNumber": "CR number",
+    "taxonomy": "Taxonomy",
+    "status": "Status",
+    "ready": "Ready to download",
+    "notReady": "Not ready",
+    "checksTitle": "Checks",
+    "mustFix": "Must be fixed",
+    "warning": "Warning",
+    "element": "IFRS element",
+    "checks": {
+      "TRIAL_BALANCE_BALANCED": "Trial balance balances",
+      "BALANCE_SHEET_BALANCED": "Balance sheet balances (assets = liabilities + equity)",
+      "ALL_BALANCES_TAGGED": "Every account with a balance has an IFRS tag",
+      "NO_TOTALS_TAGGED": "No account is tagged with a total element",
+      "IFRS_ELEMENTS_ONLY": "All tags are IFRS taxonomy elements",
+      "FULL_FINANCIAL_YEAR": "The dates cover one full financial year",
+      "PERIODS_CLOSED": "All periods of the year are closed",
+      "NO_DRAFTS": "No draft journals in these dates"
+    }
   }
 }

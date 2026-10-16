@@ -27,6 +27,8 @@ import {
   createGroupReportsRouter,
 } from './modules/reports/advanced-reports.router';
 import { createAdvancedReportsService } from './modules/reports/advanced-reports.service';
+import { createXbrlRouter } from './modules/xbrl/xbrl.router';
+import { createXbrlService } from './modules/xbrl/xbrl.service';
 import { createReportsRouter } from './modules/reports/reports.router';
 import { createReportsService } from './modules/reports/reports.service';
 import { createUsersRouter } from './modules/users/users.router';
@@ -124,6 +126,11 @@ export function createApp({ prisma, config, hasher, now, log }: AppDeps) {
   const advancedReports = createAdvancedReportsService({ prisma });
   v1.use('/companies/:companyId/reports', auth, createAdvancedReportsRouter(advancedReports));
   v1.use('/reports', auth, createGroupReportsRouter(advancedReports));
+  v1.use(
+    '/companies/:companyId/xbrl',
+    auth,
+    createXbrlRouter(createXbrlService({ prisma, entityScheme: process.env.XBRL_ENTITY_SCHEME })),
+  );
   v1.use(
     '/companies/:companyId/dashboard',
     auth,
