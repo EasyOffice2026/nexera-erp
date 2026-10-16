@@ -20,6 +20,8 @@ import { createJournalsRouter } from './modules/journals/journals.router';
 import { createJournalsService } from './modules/journals/journals.service';
 import { createPeriodsRouter } from './modules/periods/periods.router';
 import { createPeriodsService } from './modules/periods/periods.service';
+import { createDashboardRouter } from './modules/dashboard/dashboard.router';
+import { createDashboardService } from './modules/dashboard/dashboard.service';
 import { createReportsRouter } from './modules/reports/reports.router';
 import { createReportsService } from './modules/reports/reports.service';
 import { createUsersRouter } from './modules/users/users.router';
@@ -113,6 +115,11 @@ export function createApp({ prisma, config, hasher, now, log }: AppDeps) {
     '/companies/:companyId/reports',
     auth,
     createReportsRouter(createReportsService({ prisma })),
+  );
+  v1.use(
+    '/companies/:companyId/dashboard',
+    auth,
+    createDashboardRouter(createDashboardService({ prisma })),
   );
   app.use('/api/v1', v1);
   app.use('/api', notFoundHandler);

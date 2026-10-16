@@ -1,6 +1,7 @@
 // Demo data for local development: tenant "easyoffice" with the two companies Mudawwarah and
 // Khubuz Maraei, a brand and branches each, the template chart of accounts, FY2026, a few posted
 // journals and one user per role. Safe to run again: it starts the demo tenant afresh.
+import { fromFils, toFils } from '@nexera/shared';
 import { loadConfig } from '../src/config';
 import { createPasswordHasher, hashProfiles } from '../src/lib/password';
 import { createPrismaClient } from '../src/lib/prisma';
@@ -109,7 +110,6 @@ try {
 
     const accounts = await prisma.account.findMany({ where: { companyId: company.id } });
     const id = (code: string) => accounts.find((account) => account.code === code)!.id;
-    const branchId = branches[0]!.id;
     const line = (code: string, debit: string, credit: string, branch: string | null = null) => ({
       accountId: id(code),
       branchId: branch,
@@ -118,6 +118,8 @@ try {
       credit,
     });
 
+    const lastDay = (year: number, monthIndex: number) =>
+      new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
     const demo = [
       {
         date: '2026-01-01',
@@ -126,31 +128,61 @@ try {
         source: 'OPENING' as const,
         lines: [line('1130', '25000', '0'), line('1510', '15000', '0'), line('3100', '0', '40000')],
       },
-      {
-        date: '2026-01-31',
-        description: 'January sales',
-        reference: 'POS-2026-01',
-        source: 'MANUAL' as const,
-        lines: [
-          line('1110', '3200', '0', branchId),
-          line('1210', '5400', '0', branchId),
-          line('1230', '2600', '0', branchId),
-          line('4110', '0', '6100', branchId),
-          line('4140', '0', '5100', branchId),
-        ],
-      },
-      {
-        date: '2026-01-31',
-        description: 'January food cost and rent',
-        reference: 'JV-2026-01',
-        source: 'MANUAL' as const,
-        lines: [
-          line('5110', '3900', '0', branchId),
-          line('6210', '1500', '0', branchId),
-          line('6110', '2200', '0', branchId),
-          line('1130', '0', '7600'),
-        ],
-      },
+      // One sales and one cost journal per branch and month, up to the first half of October.
+      ...branches.flatMap((branch, branchIndex) =>
+        Array.from({ length: 10 }, (_, monthIndex) => {
+          const month = String(monthIndex + 1).padStart(2, '0');
+          const day = monthIndex === 9 ? '15' : String(lastDay(2026, monthIndex)).padStart(2, '0');
+          const date = `2026-${month}-${day}`;
+          const size = BigInt(100 + monthIndex * 6 + (monthIndex % 3) * 9 - branchIndex * 25);
+          const amount = (fils: bigint) => fromFils(fils * size);
+          const [cash, knet, talabat] = [32_000n, 54_000n, 26_000n];
+          const [dineIn, delivery] = [61_000n, 51_000n];
+          const [food, wages] = [39_000n, 22_000n];
+          return [
+            {
+              date,
+              description: `Sales ${branch.code} ${month}/2026`,
+              reference: `POS-${branch.code}-2026-${month}`,
+              source: 'MANUAL' as const,
+              lines: [
+                line('1110', amount(cash), '0', branch.id),
+                line('1210', amount(knet), '0', branch.id),
+                line('1230', amount(talabat), '0', branch.id),
+                line('4110', '0', amount(dineIn), branch.id),
+                line('4140', '0', amount(delivery), branch.id),
+              ],
+            },
+            {
+              date,
+              description: `Food cost, wages and rent ${branch.code} ${month}/2026`,
+              reference: `JV-${branch.code}-2026-${month}`,
+              source: 'MANUAL' as const,
+              lines: [
+                line('5110', amount(food), '0', branch.id),
+                line('6110', amount(wages), '0', branch.id),
+                line('6210', '1500', '0', branch.id),
+                line(
+                  '1130',
+                  '0',
+                  fromFils(toFils(amount(food)) + toFils(amount(wages)) + 1_500_000n),
+                ),
+              ],
+            },
+            {
+              date,
+              description: `Cash deposit and KNET settlement ${branch.code} ${month}/2026`,
+              reference: `BANK-${branch.code}-2026-${month}`,
+              source: 'MANUAL' as const,
+              lines: [
+                line('1130', fromFils(toFils(amount(cash)) + toFils(amount(knet))), '0'),
+                line('1110', '0', amount(cash), branch.id),
+                line('1210', '0', amount(knet), branch.id),
+              ],
+            },
+          ];
+        }).flat(),
+      ),
     ];
     for (const entry of demo) {
       const draft = await journals.createDraft(actor, company.id, entry);

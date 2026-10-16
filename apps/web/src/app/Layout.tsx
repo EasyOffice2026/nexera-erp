@@ -1,11 +1,11 @@
 import { useTranslation } from 'react-i18next';
-import { NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router';
+import { NavLink, Outlet, useNavigate, useParams } from 'react-router';
 import { secondaryButtonClass } from '../components/ui';
 import { useAuth } from '../features/auth/auth-context';
 import { LanguageSwitcher } from '../i18n/LanguageSwitcher';
 import { useCompanies, useName } from './company';
 
-const sections = ['journals', 'accounts', 'periods', 'reports'] as const;
+const sections = ['dashboard', 'journals', 'accounts', 'periods', 'reports'] as const;
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `rounded-md px-3 py-1.5 text-sm ${
@@ -20,13 +20,10 @@ export function Layout() {
   const companies = useCompanies();
   const name = useName();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  // Switching company keeps the same section open (the reports of the other company, say).
+  // Choosing a company opens its own dashboard.
   function switchCompany(id: string) {
-    const section = location.pathname.split('/')[3];
-    const keep = sections.find((candidate) => candidate === section) ?? 'journals';
-    void navigate(`/c/${id}/${keep}`);
+    void navigate(`/c/${id}/dashboard`);
   }
 
   return (
