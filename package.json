@@ -1,0 +1,53 @@
+{
+  "name": "nexera-erp",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Multi-tenant accounting and Qayd XBRL platform for restaurant groups",
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently --kill-others --names api,web --prefix-colors blue,green \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "npm run dev -w @nexera/api",
+    "dev:web": "npm run dev -w @nexera/web",
+    "infra:up": "docker compose up -d --wait",
+    "infra:down": "docker compose down",
+    "db:deploy": "npm run db:deploy -w @nexera/api",
+    "db:migrate": "npm run db:migrate -w @nexera/api",
+    "db:seed": "npm run db:seed -w @nexera/api",
+    "db:setup": "npm run db:deploy && npm run db:seed",
+    "tenant:create": "npm run tenant:create -w @nexera/api --",
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build",
+    "postinstall": "npm run db:generate -w @nexera/api"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^10.0.5",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.12.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "prisma": "^7.10.0",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^5.0.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true,
+    "@prisma/engines@7.10.1": true,
+    "prisma@7.10.1": true
+  }
+}

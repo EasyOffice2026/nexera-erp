@@ -1,0 +1,305 @@
+// Database schema. Tables and columns use snake_case; models use PascalCase.
+// Names that people read are bilingual JSON: { "en": "...", "ar": "..." }.
+// Every row belongs to one tenant (a subscribing customer); queries always filter by tenant_id.
+// Amounts are NUMERIC(18,3): Kuwaiti dinars with fils.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  owner
+  finance_manager
+  accountant
+  auditor
+
+  @@map("role")
+}
+
+enum Language {
+  en
+  ar
+
+  @@map("language")
+}
+
+enum AccountType {
+  ASSET
+  LIABILITY
+  EQUITY
+  REVENUE
+  EXPENSE
+
+  @@map("account_type")
+}
+
+enum PeriodStatus {
+  OPEN
+  CLOSED
+
+  @@map("period_status")
+}
+
+enum JournalStatus {
+  DRAFT
+  POSTED
+
+  @@map("journal_status")
+}
+
+enum JournalSource {
+  MANUAL
+  OPENING
+  REVERSAL
+  INTEGRATION
+
+  @@map("journal_source")
+}
+
+model Tenant {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  // Typed on the sign-in screen, for example "easyoffice".
+  slug      String   @unique
+  name      String
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  users     User[]
+  companies Company[]
+
+  @@map("tenants")
+}
+
+model User {
+  id           String    @id @default(uuid(7)) @db.Uuid
+  tenantId     String    @map("tenant_id") @db.Uuid
+  email        String
+  fullName     String    @map("full_name")
+  passwordHash String    @map("password_hash")
+  role         Role
+  language     Language  @default(en)
+  isActive     Boolean   @default(true) @map("is_active")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  refreshTokens RefreshToken[]
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid(7)) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  // Only the SHA-256 of the token is kept.
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+// One legal entity (Commercial Registration). Each company files its own statements on Qayd.
+model Company {
+  id                 String   @id @default(uuid(7)) @db.Uuid
+  tenantId           String   @map("tenant_id") @db.Uuid
+  name               Json
+  legalName          String   @map("legal_name")
+  crNumber           String   @map("cr_number")
+  baseCurrency       String   @default("KWD") @map("base_currency")
+  fiscalYearEndMonth Int      @default(12) @map("fiscal_year_end_month")
+  isActive           Boolean  @default(true) @map("is_active")
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
+  brands      Brand[]
+  branches    Branch[]
+  accounts    Account[]
+  fiscalYears FiscalYear[]
+  periods     Period[]
+  journals    JournalEntry[]
+
+  @@unique([tenantId, crNumber])
+  @@index([tenantId])
+  @@map("companies")
+}
+
+model Brand {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  name      Json
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company  Company  @relation(fields: [companyId], references: [id])
+  branches Branch[]
+
+  @@index([companyId])
+  @@map("brands")
+}
+
+// A branch is also the cost centre that journal lines are analysed by.
+model Branch {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  brandId   String   @map("brand_id") @db.Uuid
+  code      String
+  name      Json
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company Company       @relation(fields: [companyId], references: [id])
+  brand   Brand         @relation(fields: [brandId], references: [id])
+  lines   JournalLine[]
+
+  @@unique([companyId, code])
+  @@map("branches")
+}
+
+model Account {
+  id              String      @id @default(uuid(7)) @db.Uuid
+  tenantId        String      @map("tenant_id") @db.Uuid
+  companyId       String      @map("company_id") @db.Uuid
+  code            String
+  name            Json
+  type            AccountType
+  // Where the account appears in the statements (see packages/shared/src/accounts.ts).
+  subtype         String
+  parentId        String?     @map("parent_id") @db.Uuid
+  isPostable      Boolean     @default(true) @map("is_postable")
+  isActive        Boolean     @default(true) @map("is_active")
+  // The IFRS / Qayd taxonomy element used for XBRL, for example "ifrs-full:Inventories".
+  taxonomyConcept String?     @map("taxonomy_concept")
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company  Company       @relation(fields: [companyId], references: [id])
+  parent   Account?      @relation("AccountTree", fields: [parentId], references: [id])
+  children Account[]     @relation("AccountTree")
+  lines    JournalLine[]
+
+  @@unique([companyId, code])
+  @@map("accounts")
+}
+
+model FiscalYear {
+  id        String       @id @default(uuid(7)) @db.Uuid
+  tenantId  String       @map("tenant_id") @db.Uuid
+  companyId String       @map("company_id") @db.Uuid
+  name      String
+  startDate DateTime     @map("start_date") @db.Date
+  endDate   DateTime     @map("end_date") @db.Date
+  status    PeriodStatus @default(OPEN)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  company Company  @relation(fields: [companyId], references: [id])
+  periods Period[]
+
+  @@unique([companyId, startDate])
+  @@map("fiscal_years")
+}
+
+model Period {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  tenantId     String       @map("tenant_id") @db.Uuid
+  companyId    String       @map("company_id") @db.Uuid
+  fiscalYearId String       @map("fiscal_year_id") @db.Uuid
+  number       Int
+  startDate    DateTime     @map("start_date") @db.Date
+  endDate      DateTime     @map("end_date") @db.Date
+  status       PeriodStatus @default(OPEN)
+  closedAt     DateTime?    @map("closed_at") @db.Timestamptz(3)
+  closedById   String?      @map("closed_by_id") @db.Uuid
+
+  company    Company        @relation(fields: [companyId], references: [id])
+  fiscalYear FiscalYear     @relation(fields: [fiscalYearId], references: [id], onDelete: Cascade)
+  journals   JournalEntry[]
+
+  @@unique([companyId, startDate])
+  @@map("periods")
+}
+
+// Posted entries are never changed or deleted. A mistake is corrected by a reversal.
+model JournalEntry {
+  id           String        @id @default(uuid(7)) @db.Uuid
+  tenantId     String        @map("tenant_id") @db.Uuid
+  companyId    String        @map("company_id") @db.Uuid
+  periodId     String        @map("period_id") @db.Uuid
+  // Given when the entry is posted, in order, per company.
+  number       Int?
+  date         DateTime      @db.Date
+  description  String
+  reference    String        @default("")
+  source       JournalSource @default(MANUAL)
+  // The system and its own id for entries that arrive through the integration API.
+  sourceSystem String?       @map("source_system")
+  externalId   String?       @map("external_id")
+  status       JournalStatus @default(DRAFT)
+  totalDebit   Decimal       @default(0) @map("total_debit") @db.Decimal(18, 3)
+  totalCredit  Decimal       @default(0) @map("total_credit") @db.Decimal(18, 3)
+  reversesId   String?       @unique @map("reverses_id") @db.Uuid
+  createdById  String?       @map("created_by_id") @db.Uuid
+  postedById   String?       @map("posted_by_id") @db.Uuid
+  postedAt     DateTime?     @map("posted_at") @db.Timestamptz(3)
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company    Company       @relation(fields: [companyId], references: [id])
+  period     Period        @relation(fields: [periodId], references: [id])
+  reverses   JournalEntry? @relation("Reversal", fields: [reversesId], references: [id])
+  reversedBy JournalEntry? @relation("Reversal")
+  lines      JournalLine[]
+
+  @@unique([companyId, number])
+  @@unique([companyId, sourceSystem, externalId])
+  @@index([companyId, date])
+  @@map("journal_entries")
+}
+
+model JournalLine {
+  id          String  @id @default(uuid(7)) @db.Uuid
+  entryId     String  @map("entry_id") @db.Uuid
+  lineNo      Int     @map("line_no")
+  accountId   String  @map("account_id") @db.Uuid
+  branchId    String? @map("branch_id") @db.Uuid
+  description String  @default("")
+  debit       Decimal @default(0) @db.Decimal(18, 3)
+  credit      Decimal @default(0) @db.Decimal(18, 3)
+
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account Account      @relation(fields: [accountId], references: [id])
+  branch  Branch?      @relation(fields: [branchId], references: [id])
+
+  @@unique([entryId, lineNo])
+  @@index([accountId])
+  @@map("journal_lines")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid(7)) @db.Uuid
+  tenantId   String   @map("tenant_id") @db.Uuid
+  userId     String?  @map("user_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  data       Json     @default("{}")
+  ip         String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@index([tenantId, createdAt])
+  @@map("audit_logs")
+}

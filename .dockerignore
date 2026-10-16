@@ -1,0 +1,13 @@
+# Never sent to an image build: installed packages and builds are made inside the image, and
+# secrets stay on the machine.
+**/node_modules
+**/dist
+**/coverage
+**/.vite
+**/.vite-temp
+.git
+.github
+.env
+.env.*
+!.env.example
+**/*.log
