@@ -53,7 +53,8 @@
     "journals": "القيود",
     "periods": "الفترات",
     "reports": "التقارير",
-    "company": "الشركة"
+    "company": "الشركة",
+    "xbrl": "XBRL"
   },
   "dashboard": {
     "thisMonth": "هذا الشهر",
@@ -277,6 +278,35 @@
     "INVALID_BRANCH": "استخدم فرعاً نشطاً لهذه الشركة.",
     "JOURNAL_POSTED": "لا يمكن تعديل قيد مرحّل. اعكسه بدلاً من ذلك.",
     "JOURNAL_ALREADY_REVERSED": "هذا القيد معكوس بالفعل.",
-    "REVERSAL_BEFORE_ORIGINAL": "لا يمكن أن يكون تاريخ العكس قبل تاريخ القيد."
+    "REVERSAL_BEFORE_ORIGINAL": "لا يمكن أن يكون تاريخ العكس قبل تاريخ القيد.",
+    "XBRL_NOT_READY": "القوائم المالية لا تجتاز فحوصات XBRL بعد. صحّح البنود المعلّمة بـ ✗ أولاً.",
+    "INVALID_RANGE": "يجب ألا يكون تاريخ البداية بعد تاريخ النهاية."
+  },
+  "xbrl": {
+    "title": "ملف XBRL",
+    "intro": "يجهّز ملف XBRL لهذه الشركة من قوائمها المالية المرحّلة. لكل شركة (لكل سجل تجاري) ملف خاص بها. صحّح كل بند معلّم بـ ✗ ثم حمّل الملف.",
+    "from": "من",
+    "to": "إلى",
+    "download": "تحميل ملف XBRL",
+    "legalName": "الاسم القانوني",
+    "crNumber": "رقم السجل التجاري",
+    "taxonomy": "التصنيف",
+    "status": "الحالة",
+    "ready": "جاهز للتحميل",
+    "notReady": "غير جاهز",
+    "checksTitle": "الفحوصات",
+    "mustFix": "يجب تصحيحه",
+    "warning": "تنبيه",
+    "element": "عنصر IFRS",
+    "checks": {
+      "TRIAL_BALANCE_BALANCED": "ميزان المراجعة متوازن",
+      "BALANCE_SHEET_BALANCED": "الميزانية متوازنة (الأصول = الالتزامات + حقوق الملكية)",
+      "ALL_BALANCES_TAGGED": "كل حساب له رصيد مربوط بعنصر IFRS",
+      "NO_TOTALS_TAGGED": "لا يوجد حساب مربوط بعنصر إجمالي",
+      "IFRS_ELEMENTS_ONLY": "كل العناصر من تصنيف IFRS",
+      "FULL_FINANCIAL_YEAR": "التواريخ تغطي سنة مالية كاملة",
+      "PERIODS_CLOSED": "كل فترات السنة مقفلة",
+      "NO_DRAFTS": "لا توجد قيود مسودة في هذه التواريخ"
+    }
   }
 }

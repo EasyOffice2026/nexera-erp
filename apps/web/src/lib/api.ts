@@ -100,3 +100,20 @@ export async function request<T>(
   if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
+
+// Downloads a file answer of the API (for example an XBRL instance) under the given name.
+export async function download(path: string, fileName: string): Promise<void> {
+  const call = (token: string | null) => send(path, 'GET', undefined, token);
+  let res = await call(sessionStore.get()?.accessToken ?? null);
+  if (res.status === 401) {
+    const refreshed = await refreshSession();
+    if (refreshed) res = await call(refreshed.accessToken);
+  }
+  if (!res.ok) throw await readError(res);
+  const url = URL.createObjectURL(await res.blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = fileName;
+  link.click();
+  URL.revokeObjectURL(url);
+}

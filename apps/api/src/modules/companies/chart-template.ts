@@ -492,7 +492,7 @@ export const restaurantChartOfAccounts: readonly TemplateAccount[] = [
     'EXPENSE',
     'operating_expense',
     '6000',
-    'ExpenseRelatingToShorttermLeases',
+    'ExpenseRelatingToShorttermLeasesForWhichRecognitionExemptionHasBeenUsed',
   ),
   a(
     '6220',
