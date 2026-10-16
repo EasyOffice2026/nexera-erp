@@ -34,7 +34,7 @@ export const accountSubtypes = {
 
 export type AccountSubtype = (typeof accountSubtypes)[AccountType][number];
 
-export const allAccountSubtypes = Object.values(accountSubtypes).flat() as AccountSubtype[];
+export const allAccountSubtypes: AccountSubtype[] = Object.values(accountSubtypes).flat();
 
 export function isSubtypeOf(type: AccountType, subtype: string): subtype is AccountSubtype {
   return (accountSubtypes[type] as readonly string[]).includes(subtype);

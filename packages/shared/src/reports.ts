@@ -85,3 +85,10 @@ export interface BalanceSheet {
   totalEquity: string;
   balanced: boolean;
 }
+
+export const balanceSheetQuerySchema = z.object({
+  asOf: isoDateSchema,
+  branchId: z.string().uuid().optional(),
+  brandId: z.string().uuid().optional(),
+});
+export type BalanceSheetQuery = z.infer<typeof balanceSheetQuerySchema>;

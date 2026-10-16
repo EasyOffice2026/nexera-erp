@@ -33,6 +33,9 @@ export const errors = {
   notFound: (what: string) => new AppError(404, 'NOT_FOUND', `${what} was not found`),
   // The code says what is taken, for example EMAIL_TAKEN.
   conflict: (code: string, message: string) => new AppError(409, code, message),
+  // The request is understood but breaks a bookkeeping rule, for example an unbalanced journal.
+  rule: (code: string, message: string, details?: unknown) =>
+    new AppError(422, code, message, details === undefined ? {} : { details }),
   // A terminal asked to sign somebody in at a branch (or a brand) that has been deactivated.
   branchInactive: () => new AppError(403, 'BRANCH_INACTIVE', 'This branch is not active'),
   accountLocked: (retryAfterSeconds: number) =>
