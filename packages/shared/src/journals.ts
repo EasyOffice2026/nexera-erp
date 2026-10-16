@@ -5,7 +5,7 @@ import { isoDateSchema } from './periods';
 export const journalStatuses = ['DRAFT', 'POSTED'] as const;
 export type JournalStatus = (typeof journalStatuses)[number];
 
-export const journalSources = ['MANUAL', 'OPENING', 'REVERSAL', 'INTEGRATION'] as const;
+export const journalSources = ['MANUAL', 'OPENING', 'REVERSAL', 'INTEGRATION', 'BANK'] as const;
 export type JournalSource = (typeof journalSources)[number];
 
 export const journalLineSchema = z

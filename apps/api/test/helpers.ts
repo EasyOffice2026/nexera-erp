@@ -28,6 +28,11 @@ export const testHasher = createPasswordHasher(hashProfiles.fast);
 
 // Empties every table, children before parents.
 export async function resetDatabase(prisma: PrismaClient): Promise<void> {
+  await prisma.bankStatementLine.deleteMany();
+  await prisma.bankStatement.deleteMany();
+  await prisma.bankRule.deleteMany();
+  await prisma.bankReconciliation.deleteMany();
+  await prisma.bankAccount.deleteMany();
   await prisma.journalLine.deleteMany();
   await prisma.journalEntry.updateMany({ data: { reversesId: null } });
   await prisma.journalEntry.deleteMany();

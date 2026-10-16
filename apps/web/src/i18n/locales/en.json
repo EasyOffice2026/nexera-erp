@@ -54,7 +54,8 @@
     "periods": "Periods",
     "reports": "Reports",
     "company": "Company",
-    "xbrl": "XBRL"
+    "xbrl": "XBRL",
+    "bank": "Bank"
   },
   "dashboard": {
     "thisMonth": "This month",
@@ -154,7 +155,8 @@
     "MANUAL": "Manual",
     "OPENING": "Opening balances",
     "REVERSAL": "Reversal",
-    "INTEGRATION": "Integration"
+    "INTEGRATION": "Integration",
+    "BANK": "Bank statement"
   },
   "periods": {
     "title": "Financial years and periods",
@@ -268,7 +270,15 @@
     "JOURNAL_ALREADY_REVERSED": "This journal is already reversed.",
     "REVERSAL_BEFORE_ORIGINAL": "A reversal cannot be dated before the journal.",
     "XBRL_NOT_READY": "The statements do not pass the XBRL checks yet. Fix the items marked ✗ first.",
-    "INVALID_RANGE": "The start date must not be after the end date."
+    "INVALID_RANGE": "The start date must not be after the end date.",
+    "BANK_RECONCILED": "The bank account is reconciled up to this date. Postings and changes on or before it are locked.",
+    "BANK_ACCOUNT_EXISTS": "This account is already linked to a bank.",
+    "BANK_LINE_MATCHED": "This statement line is already matched.",
+    "INVALID_MATCH": "Pick a posted entry of this bank account.",
+    "MATCH_AMOUNT_DIFFERS": "The amounts are not the same.",
+    "NO_STATEMENT_LINES": "No transactions were found with these columns. Check the heading row and the columns.",
+    "RECONCILIATION_NOT_BALANCED": "Match every statement line first.",
+    "PAYLOAD_TOO_LARGE": "The file is too large. Import a shorter period."
   },
   "xbrl": {
     "title": "XBRL file",
@@ -296,5 +306,103 @@
       "PERIODS_CLOSED": "All periods of the year are closed",
       "NO_DRAFTS": "No draft journals in these dates"
     }
+  },
+  "bank": {
+    "title": "Bank",
+    "linkTitle": "Link a bank account",
+    "glAccount": "Account in the chart",
+    "chooseAccount": "Choose an account",
+    "bankName": "Bank",
+    "accountNumber": "Account number",
+    "openingBalance": "Bank balance before the first statement",
+    "openingHint": "Usually 0 when you import the statements from the day the account was opened.",
+    "link": "Link",
+    "tabs": {
+      "lines": "Statement lines",
+      "import": "Import statement",
+      "rules": "Rules",
+      "reconciliation": "Reconciliation"
+    },
+    "importIntro": "Choose the statement file exported from the bank (Excel .xlsx or CSV). Then check which column is which. The choice is remembered for this bank.",
+    "savedMapping": "The column choice from the last import of this bank is used. Change it below if the format is different.",
+    "mappingTitle": "Columns",
+    "headerRow": "Heading row",
+    "dateOrder": "Date style",
+    "dateOrders": {
+      "DMY": "Day/Month/Year",
+      "MDY": "Month/Day/Year",
+      "YMD": "Year-Month-Day"
+    },
+    "amountMode": "Amounts",
+    "amountModes": {
+      "split": "Separate debit and credit columns",
+      "signed": "One amount column (minus = money out)"
+    },
+    "columns": {
+      "date": "Date",
+      "description": "Description",
+      "reference": "Reference",
+      "amount": "Amount",
+      "moneyOut": "Debit (money out)",
+      "moneyIn": "Credit (money in)",
+      "balance": "Balance"
+    },
+    "negate": "Money out is shown as a positive amount",
+    "previewSummary": "{{lines}} transactions found, {{skipped}} rows skipped (headings, balances, empty amounts).",
+    "importButton": "Import",
+    "importResult": "{{imported}} lines imported, {{duplicates}} already imported before, {{autoMatched}} matched automatically, {{ruleJournals}} journals created by rules.",
+    "row": "Row",
+    "status": "Status",
+    "statuses": {
+      "unmatched": "Not matched",
+      "matched": "Matched",
+      "all": "All"
+    },
+    "autoMatch": "Match automatically",
+    "applyRules": "Apply rules",
+    "autoMatched": "{{matched}} lines matched.",
+    "rulesApplied": "{{created}} journals created by rules.",
+    "noLines": "No statement lines here.",
+    "matchedTo": "Journal #{{number}}",
+    "locked": "Reconciled",
+    "resolve": "Match or post",
+    "unmatch": "Undo match",
+    "previous": "Previous",
+    "next": "Next",
+    "suggestions": "Posted bank entries with the same amount",
+    "noSuggestions": "No posted bank entry has this amount. Create a journal below.",
+    "match": "Match",
+    "otherAccount": "Other account",
+    "branch": "Branch",
+    "noBranch": "No branch",
+    "journalDescription": "Journal description",
+    "createJournal": "Post journal and match",
+    "rulesIntro": "A rule posts a journal for every unmatched statement line whose description or reference contains the text, for example \"KNET\" to the KNET receivable or \"CHARGES\" to bank charges.",
+    "ruleName": "Rule",
+    "contains": "Text contains",
+    "direction": "Direction",
+    "directions": {
+      "ANY": "Money in or out",
+      "IN": "Money in",
+      "OUT": "Money out"
+    },
+    "onlyThisBank": "Only this bank",
+    "addRule": "Add rule",
+    "delete": "Delete",
+    "asOf": "As of",
+    "lock": "Lock up to this date",
+    "bookBalance": "Balance in the books",
+    "addBankOnly": "Add: at the bank, not yet in the books",
+    "lessBookOnly": "Less: in the books, not yet at the bank",
+    "statementBalance": "Balance per statement",
+    "bankColumn": "Balance shown by the bank",
+    "difference": "Difference",
+    "reconciledUntil": "Reconciled up to {{date}}.",
+    "canLock": "Everything is matched. You can lock the month.",
+    "cannotLock": "Match every statement line (and agree the balance with the bank) before locking.",
+    "bankOnlyTitle": "At the bank, not yet in the books",
+    "bookOnlyTitle": "In the books, not yet at the bank (for example cheques not yet cashed)",
+    "unmatchedCount_one": "{{count}} line not matched",
+    "unmatchedCount_other": "{{count}} lines not matched"
   }
 }

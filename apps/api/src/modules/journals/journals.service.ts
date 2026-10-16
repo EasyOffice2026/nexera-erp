@@ -2,6 +2,7 @@ import {
   type Journal,
   type JournalInput,
   type JournalLineInput,
+  type JournalSource,
   type JournalSummary,
   type LocalizedName,
   type Page,
@@ -143,6 +144,85 @@ async function nextNumber(tx: Tx, companyId: string): Promise<number> {
     select: { journalSeq: true },
   });
   return journalSeq;
+}
+
+// Refuses postings to a bank account on or before the date it is reconciled up to.
+export async function requireBankOpen(
+  tx: Tx,
+  companyId: string,
+  date: Date,
+  accountIds: readonly string[],
+): Promise<void> {
+  const locked = await tx.bankAccount.findFirst({
+    where: { companyId, accountId: { in: [...accountIds] }, reconciledUntil: { gte: date } },
+    select: { bankName: true, reconciledUntil: true },
+  });
+  if (locked) {
+    throw errors.rule('BANK_RECONCILED', 'The bank account is reconciled up to this date', {
+      bankName: locked.bankName,
+      reconciledUntil: locked.reconciledUntil && formatDate(locked.reconciledUntil),
+    });
+  }
+}
+
+export type SystemJournalInput = Omit<JournalInput, 'source'> & { source: JournalSource };
+
+// Creates and posts a balanced journal in one step, for journals the system makes (for example
+// from a bank statement line). Answers the ids of the entry and of its lines, in order.
+export async function postJournalInTx(
+  tx: Tx,
+  actor: Actor,
+  companyId: string,
+  input: SystemJournalInput,
+  postedAt: Date,
+): Promise<{ id: string; lineIds: string[] }> {
+  const date = parseDate(input.date);
+  requireOpen(await periodFor(tx, companyId, date));
+  await checkLines(tx, companyId, input.lines);
+  await requireBankOpen(
+    tx,
+    companyId,
+    date,
+    input.lines.map((line) => line.accountId),
+  );
+  const totals = totalsOf(input.lines);
+  if (input.lines.length < 2) {
+    throw errors.rule('JOURNAL_TOO_FEW_LINES', 'A journal needs at least two lines');
+  }
+  if (totals.debit !== totals.credit || totals.debit === 0n) {
+    throw errors.rule('JOURNAL_UNBALANCED', 'Debits and credits must be equal');
+  }
+  const number = await nextNumber(tx, companyId);
+  const entry = await tx.journalEntry.create({
+    data: {
+      tenantId: actor.tenantId,
+      companyId,
+      periodId: (await periodFor(tx, companyId, date)).id,
+      number,
+      date,
+      description: input.description,
+      reference: input.reference,
+      source: input.source,
+      status: 'POSTED',
+      totalDebit: filsToDecimal(totals.debit),
+      totalCredit: filsToDecimal(totals.credit),
+      createdById: actor.userId,
+      postedById: actor.userId,
+      postedAt,
+      lines: { create: lineData(input.lines) },
+    },
+    select: { id: true, lines: { select: { id: true }, orderBy: { lineNo: 'asc' } } },
+  });
+  await writeAudit(tx, {
+    tenantId: actor.tenantId,
+    userId: actor.userId,
+    action: 'journal.post',
+    entityType: 'journal',
+    entityId: entry.id,
+    data: { number, source: input.source },
+    ip: actor.ip,
+  });
+  return { id: entry.id, lineIds: entry.lines.map((line) => line.id) };
 }
 
 export function createJournalsService(deps: { prisma: PrismaClient; now?: () => Date }) {
@@ -341,6 +421,12 @@ export function createJournalsService(deps: { prisma: PrismaClient; now?: () => 
           });
         }
         requireOpen(await periodFor(tx, companyId, entry.date));
+        await requireBankOpen(
+          tx,
+          companyId,
+          entry.date,
+          entry.lines.map((line) => line.accountId),
+        );
         await checkLines(
           tx,
           companyId,
@@ -396,6 +482,12 @@ export function createJournalsService(deps: { prisma: PrismaClient; now?: () => 
         }
         const period = await periodFor(tx, companyId, date);
         requireOpen(period);
+        await requireBankOpen(
+          tx,
+          companyId,
+          date,
+          original.lines.map((line) => line.accountId),
+        );
         const reversal = await tx.journalEntry.create({
           data: {
             tenantId: actor.tenantId,

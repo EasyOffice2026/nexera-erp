@@ -10,3 +10,4 @@ export * from './periods';
 export * from './reports';
 export * from './advanced-reports';
 export * from './xbrl';
+export * from './bank';
