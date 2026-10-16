@@ -2,7 +2,7 @@ import type { BalanceSheet, IncomeStatement, StatementLine, TrialBalance } from 
 import { useQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router';
-import { useCompanyId, useName } from '../../app/company';
+import { useCompanies, useCompanyId, useName } from '../../app/company';
 import {
   Amount,
   Card,
@@ -10,16 +10,33 @@ import {
   Loading,
   numClass,
   PageHeader,
+  secondaryButtonClass,
   tableClass,
   tdClass,
   thClass,
 } from '../../components/ui';
 import { request } from '../../lib/api';
+import { exportTableToExcel } from '../../lib/export';
 import { query } from '../../lib/format';
 import { subtypeLabel } from '../../lib/subtype-labels';
+import {
+  CashFlowReport,
+  ColumnOptions,
+  ComparativeReport,
+  GroupReport,
+  JournalRegisterReport,
+} from './AdvancedReports';
 import { ReportFilters, useReportRange } from './ReportFilters';
 
-const tabs = ['trialBalance', 'incomeStatement', 'balanceSheet'] as const;
+const tabs = [
+  'trialBalance',
+  'incomeStatement',
+  'comparative',
+  'balanceSheet',
+  'cashFlow',
+  'journalRegister',
+  'group',
+] as const;
 type Tab = (typeof tabs)[number];
 
 function TrialBalanceReport() {
@@ -268,36 +285,77 @@ function BalanceSheetReport() {
 }
 
 export function ReportsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [params, setParams] = useSearchParams();
+  const companyId = useCompanyId();
+  const companies = useCompanies();
+  const name = useName();
+  const [range] = useReportRange();
   const tab: Tab = tabs.find((value) => value === params.get('tab')) ?? 'trialBalance';
+  const company = companies.data?.find((row) => row.id === companyId);
+  const asOf = tab === 'balanceSheet';
+  const subject = tab === 'group' ? t('reports.group') : company ? name(company.name) : '';
+  const dates = asOf ? range.to : `${range.from} – ${range.to}`;
+  const title = `${subject} · ${t(`reports.${tab}`)} · ${dates}`;
+
+  async function exportExcel() {
+    const table = document.querySelector<HTMLTableElement>('#report-body table');
+    if (!table) return;
+    await exportTableToExcel(
+      table,
+      title,
+      `${t(`reports.${tab}`)} ${asOf ? range.to : `${range.from} ${range.to}`}.xlsx`,
+      i18n.language === 'ar',
+    );
+  }
 
   return (
     <>
-      <PageHeader title={t('reports.title')}>
-        <div className="flex gap-1 rounded-lg bg-slate-200 p-1">
-          {tabs.map((value) => (
-            <button
-              key={value}
-              type="button"
-              className={`rounded-md px-3 py-1 text-sm ${
-                value === tab ? 'bg-white shadow-sm' : 'text-slate-700'
-              }`}
-              onClick={() => {
-                const next = new URLSearchParams(params);
-                next.set('tab', value);
-                setParams(next, { replace: true });
-              }}
-            >
-              {t(`reports.${value}`)}
-            </button>
-          ))}
+      <div className="print:hidden">
+        <PageHeader title={t('reports.title')}>
+          <div className="flex flex-wrap gap-1 rounded-lg bg-slate-200 p-1">
+            {tabs.map((value) => (
+              <button
+                key={value}
+                type="button"
+                className={`rounded-md px-3 py-1 text-sm ${
+                  value === tab ? 'bg-white shadow-sm' : 'text-slate-700'
+                }`}
+                onClick={() => {
+                  const next = new URLSearchParams(params);
+                  next.set('tab', value);
+                  next.delete('page');
+                  setParams(next, { replace: true });
+                }}
+              >
+                {t(`reports.${value}`)}
+              </button>
+            ))}
+          </div>
+        </PageHeader>
+      </div>
+      <ReportFilters asOfOnly={asOf} withBranch={tab !== 'cashFlow' && tab !== 'group'}>
+        {tab === 'comparative' && <ColumnOptions />}
+        {tab === 'group' && <ColumnOptions withColumns={false} />}
+        <div className="ms-auto flex gap-2">
+          <button type="button" className={secondaryButtonClass} onClick={() => void exportExcel()}>
+            {t('reports.exportExcel')}
+          </button>
+          <button type="button" className={secondaryButtonClass} onClick={() => window.print()}>
+            {t('reports.print')}
+          </button>
         </div>
-      </PageHeader>
-      <ReportFilters asOfOnly={tab === 'balanceSheet'} />
-      {tab === 'trialBalance' && <TrialBalanceReport />}
-      {tab === 'incomeStatement' && <IncomeStatementReport />}
-      {tab === 'balanceSheet' && <BalanceSheetReport />}
+      </ReportFilters>
+      <h2 className="mb-3 hidden text-lg font-semibold print:block">{title}</h2>
+      <div id="report-body">
+        {tab === 'trialBalance' && <TrialBalanceReport />}
+        {tab === 'incomeStatement' && <IncomeStatementReport />}
+        {tab === 'comparative' && <ComparativeReport />}
+        {tab === 'balanceSheet' && <BalanceSheetReport />}
+        {tab === 'cashFlow' && <CashFlowReport />}
+        {tab === 'journalRegister' && <JournalRegisterReport />}
+        {tab === 'group' && <GroupReport />}
+      </div>
     </>
   );
 }

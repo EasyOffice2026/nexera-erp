@@ -76,7 +76,7 @@ export function Card({ children, className = '' }: { children: ReactNode; classN
 // Amounts read left to right in both languages.
 export function Amount({ value }: { value: string }) {
   return (
-    <span dir="ltr" className="tabular-nums">
+    <span dir="ltr" className="tabular-nums" data-amount={value}>
       {formatAmount(value)}
     </span>
   );

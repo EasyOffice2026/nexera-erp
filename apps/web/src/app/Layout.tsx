@@ -27,8 +27,8 @@ export function Layout() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen bg-slate-100 print:bg-white">
+      <header className="border-b border-slate-200 bg-white print:hidden">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3 px-4 py-3">
           <span className="font-semibold text-slate-900">{t('app.name')}</span>
           <select
@@ -66,7 +66,7 @@ export function Layout() {
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl p-4">
+      <main className="mx-auto max-w-7xl p-4 print:max-w-none print:p-0">
         <Outlet />
       </main>
     </div>
