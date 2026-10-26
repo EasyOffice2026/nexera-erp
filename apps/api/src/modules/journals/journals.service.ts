@@ -16,7 +16,7 @@ import { formatDate, parseDate } from '../../lib/dates';
 import { errors } from '../../lib/http-errors';
 import { decimalToAmount, filsToDecimal } from '../../lib/money';
 import type { PrismaClient } from '../../lib/prisma';
-import type { Actor } from '../../middleware/authenticate';
+import type { Actor, PostingActor } from '../../middleware/authenticate';
 import type { Prisma } from '../../generated/prisma/client';
 
 type ListQuery = z.output<typeof listJournalsQuerySchema>;
@@ -124,11 +124,12 @@ async function checkLines(tx: Tx, companyId: string, lines: readonly JournalLine
   });
 }
 
-function lineData(lines: readonly JournalLineInput[]) {
+function lineData(lines: readonly SystemJournalLine[]) {
   return lines.map((line, index) => ({
     lineNo: index + 1,
     accountId: line.accountId,
     branchId: line.branchId,
+    ...(line.partyId ? { partyId: line.partyId } : {}),
     description: line.description,
     debit: filsToDecimal(toFils(line.debit)),
     credit: filsToDecimal(toFils(line.credit)),
@@ -165,7 +166,11 @@ export async function requireBankOpen(
   }
 }
 
-export type SystemJournalInput = Omit<JournalInput, 'source'> & {
+// A system line may name the subledger party (the customer) of a control-account line.
+export type SystemJournalLine = JournalLineInput & { partyId?: string };
+
+export type SystemJournalInput = Omit<JournalInput, 'source' | 'lines'> & {
+  lines: SystemJournalLine[];
   source: JournalSource;
   sourceSystem?: string;
   externalId?: string;
@@ -176,7 +181,7 @@ export type SystemJournalInput = Omit<JournalInput, 'source'> & {
 // from a bank statement line). Answers the ids of the entry and of its lines, in order.
 export async function postJournalInTx(
   tx: Tx,
-  actor: Actor,
+  actor: PostingActor,
   companyId: string,
   input: SystemJournalInput,
   postedAt: Date,
@@ -184,6 +189,15 @@ export async function postJournalInTx(
   const date = parseDate(input.date);
   requireOpen(await periodFor(tx, companyId, date));
   await checkLines(tx, companyId, input.lines);
+  const partyIds = [
+    ...new Set(input.lines.flatMap((line) => (line.partyId ? [line.partyId] : []))),
+  ];
+  if (partyIds.length > 0) {
+    const found = await tx.subledgerParty.count({ where: { companyId, id: { in: partyIds } } });
+    if (found !== partyIds.length) {
+      throw errors.rule('INVALID_PARTY', 'A party is not one of this company');
+    }
+  }
   await requireBankOpen(
     tx,
     companyId,
@@ -227,7 +241,7 @@ export async function postJournalInTx(
     action: 'journal.post',
     entityType: 'journal',
     entityId: entry.id,
-    data: { number, source: input.source },
+    data: { ...actor.auditData, number, source: input.source },
     ip: actor.ip,
   });
   return { id: entry.id, lineIds: entry.lines.map((line) => line.id) };

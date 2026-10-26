@@ -13,7 +13,7 @@ import { errors } from '../../lib/http-errors';
 import type { PrismaClient } from '../../lib/prisma';
 import type { Actor } from '../../middleware/authenticate';
 import { Prisma } from '../../generated/prisma/client';
-import { restaurantChartOfAccounts } from './chart-template';
+import { restaurantChartOfAccounts, type TemplateAccount } from './chart-template';
 
 type CompanyRow = Prisma.CompanyGetPayload<object>;
 type BrandRow = Prisma.BrandGetPayload<object>;
@@ -51,13 +51,14 @@ function isUniqueViolation(error: unknown): boolean {
 }
 
 // Creates the template accounts of a new company, headers first so children find their parent.
-async function seedChartOfAccounts(
+export async function seedChartOfAccounts(
   tx: Prisma.TransactionClient,
   tenantId: string,
   companyId: string,
+  template: readonly TemplateAccount[] = restaurantChartOfAccounts,
 ) {
   const ids = new Map<string, string>();
-  for (const account of restaurantChartOfAccounts) {
+  for (const account of template) {
     const parentId = account.parent ? ids.get(account.parent) : undefined;
     if (account.parent && !parentId) {
       throw new Error(

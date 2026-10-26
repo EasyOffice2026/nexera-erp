@@ -39,6 +39,42 @@ export function fiscalYearName(start: Date, end: Date): string {
   return first === last ? `FY${first}` : `FY${first}/${String(last).slice(-2)}`;
 }
 
+// Creates a financial year of 12 open monthly periods from start. Throws when it would overlap
+// another year of the company.
+export async function insertFiscalYear(
+  tx: Prisma.TransactionClient,
+  tenantId: string,
+  companyId: string,
+  start: Date,
+): Promise<FiscalYearRow> {
+  const end = addDays(addMonths(start, 12), -1);
+  const overlap = await tx.fiscalYear.findFirst({
+    where: { companyId, startDate: { lte: end }, endDate: { gte: start } },
+  });
+  if (overlap) {
+    throw errors.conflict('FISCAL_YEAR_OVERLAP', 'This financial year overlaps another one');
+  }
+  return tx.fiscalYear.create({
+    data: {
+      tenantId,
+      companyId,
+      name: fiscalYearName(start, end),
+      startDate: start,
+      endDate: end,
+      periods: {
+        create: Array.from({ length: 12 }, (_, index) => ({
+          tenantId,
+          companyId,
+          number: index + 1,
+          startDate: addMonths(start, index),
+          endDate: addDays(addMonths(start, index + 1), -1),
+        })),
+      },
+    },
+    include: { periods: true },
+  });
+}
+
 export function createPeriodsService(deps: { prisma: PrismaClient }) {
   const { prisma } = deps;
 
@@ -70,34 +106,8 @@ export function createPeriodsService(deps: { prisma: PrismaClient }) {
           { expectedMonth },
         );
       }
-      const end = addDays(addMonths(start, 12), -1);
-
       const row = await prisma.$transaction(async (tx) => {
-        const overlap = await tx.fiscalYear.findFirst({
-          where: { companyId, startDate: { lte: end }, endDate: { gte: start } },
-        });
-        if (overlap) {
-          throw errors.conflict('FISCAL_YEAR_OVERLAP', 'This financial year overlaps another one');
-        }
-        const year = await tx.fiscalYear.create({
-          data: {
-            tenantId: actor.tenantId,
-            companyId,
-            name: fiscalYearName(start, end),
-            startDate: start,
-            endDate: end,
-            periods: {
-              create: Array.from({ length: 12 }, (_, index) => ({
-                tenantId: actor.tenantId,
-                companyId,
-                number: index + 1,
-                startDate: addMonths(start, index),
-                endDate: addDays(addMonths(start, index + 1), -1),
-              })),
-            },
-          },
-          include: { periods: true },
-        });
+        const year = await insertFiscalYear(tx, actor.tenantId, companyId, start);
         await writeAudit(tx, {
           tenantId: actor.tenantId,
           userId: actor.userId,

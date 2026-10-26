@@ -38,6 +38,16 @@ export const errors = {
     new AppError(422, code, message, details === undefined ? {} : { details }),
   // A terminal asked to sign somebody in at a branch (or a brand) that has been deactivated.
   branchInactive: () => new AppError(403, 'BRANCH_INACTIVE', 'This branch is not active'),
+  // CRM holds its events until posting is turned on; FORBIDDEN would make it give up.
+  postingDisabled: () =>
+    new AppError(403, 'POSTING_DISABLED', 'Journal posting from CRM is turned off'),
+  platformDisabled: () =>
+    new AppError(403, 'PLATFORM_DISABLED', 'Platform provisioning is turned off'),
+  rateLimited: (retryAfterSeconds: number) =>
+    new AppError(429, 'RATE_LIMITED', 'Too many requests. Try again later', {
+      details: { retryAfterSeconds },
+      headers: { 'Retry-After': String(retryAfterSeconds) },
+    }),
   accountLocked: (retryAfterSeconds: number) =>
     new AppError(429, 'ACCOUNT_LOCKED', 'Too many failed attempts. Try again later', {
       details: { retryAfterSeconds },

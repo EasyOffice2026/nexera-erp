@@ -19,6 +19,34 @@ export interface Config {
   // The built web app, served by the API in production. Not served when unset.
   webDist: string | undefined;
   crmPostingEnabled: boolean;
+  // Server-to-server provisioning of hosted CRM workspaces. Off unless turned on.
+  platform: {
+    provisioningEnabled: boolean;
+    // Key id and SHA-256 hex of each full provider token (nxp_<keyId>_<secret>).
+    apiKeys: { keyId: string; tokenSha256: string }[];
+    // Calls allowed per key per minute.
+    rateLimitPerMinute: number;
+  };
+}
+
+const PLATFORM_KEY = /^([A-Za-z0-9]{1,32}):([0-9a-f]{64})$/;
+
+function parsePlatformKeys(value: string): { keyId: string; tokenSha256: string }[] {
+  const keys = value
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const match = PLATFORM_KEY.exec(entry);
+      if (!match?.[1] || !match[2]) {
+        throw new Error('PLATFORM_API_KEYS must be a comma list of keyId:sha256hex.');
+      }
+      return { keyId: match[1], tokenSha256: match[2] };
+    });
+  if (new Set(keys.map((key) => key.keyId)).size !== keys.length) {
+    throw new Error('PLATFORM_API_KEYS has a key id twice.');
+  }
+  return keys;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -40,6 +68,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(30),
     WEB_DIST: z.string().min(1).optional(),
     CRM_INTEGRATION_POSTING_ENABLED: z.enum(['true', 'false']).default('false'),
+    PLATFORM_PROVISIONING_ENABLED: z.enum(['true', 'false']).default('false'),
+    PLATFORM_API_KEYS: z.string().default(''),
+    PLATFORM_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(30),
   });
 
   const values = schema.parse(env);
@@ -49,6 +80,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   // The development secret is in the code for everyone to read; anyone could sign tokens with it.
   if (production && values.JWT_ACCESS_SECRET === DEV_JWT_SECRET) {
     throw new Error('JWT_ACCESS_SECRET must be a secret of your own in production.');
+  }
+
+  const platformKeys = parsePlatformKeys(values.PLATFORM_API_KEYS);
+  if (values.PLATFORM_PROVISIONING_ENABLED === 'true' && platformKeys.length === 0) {
+    throw new Error('PLATFORM_PROVISIONING_ENABLED needs at least one PLATFORM_API_KEYS entry.');
   }
 
   return {
@@ -66,5 +102,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     authRateLimit: { windowMs: 15 * 60 * 1000, max: values.AUTH_RATE_LIMIT_MAX },
     webDist: values.WEB_DIST,
     crmPostingEnabled: values.CRM_INTEGRATION_POSTING_ENABLED === 'true',
+    platform: {
+      provisioningEnabled: values.PLATFORM_PROVISIONING_ENABLED === 'true',
+      apiKeys: platformKeys,
+      rateLimitPerMinute: values.PLATFORM_RATE_LIMIT_MAX,
+    },
   };
 }

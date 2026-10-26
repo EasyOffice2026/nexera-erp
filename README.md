@@ -35,6 +35,25 @@ flag. Neither migrations nor provisioning post/import historical financial data.
 posting merely to preview the UI. The companion CRM implementation is in
 [crm-system](https://github.com/EasyOffice2026/crm-system/pull/1).
 
+### Hosted CRM workspaces (staging/local only)
+
+Each hosted CRM workspace gets its own ERP tenant and legal company, the `general_business_v1`
+chart, a 12-period fiscal year and CRM posting profiles (receivable 1210, revenue 4100, sales
+returns 4900, receipts clearing 1150, tax payable 2300, opening equity 3900, adjustments 4950).
+No ERP user or password is created. Customers are kept in a subledger (`subledger_parties`,
+`journal_lines.party_id`) under the single receivable control account.
+
+- Provider API `/api/v1/platform/crm-workspaces/:workspaceId` (`PUT`, `GET`, `POST .../suspend`,
+  `POST .../resume`, `PUT|DELETE .../credentials/:credentialId` with `{ "tokenSha256" }`), bearer
+  `nxp_<keyId>_<secret>` checked against `PLATFORM_API_KEYS`; no browsers, rate limited, audited.
+- The CRM backend calls `/api/v1/integrations/crm` with `Authorization: Bearer nxc_...` and
+  `X-Crm-Workspace-Id`. It reads `/connection`, `/accounts`, `/journals`, `/trial-balance`,
+  `/customers/:ref/balance`, `/receivables`, and posts only through `POST /events`
+  (`Idempotency-Key` = `eventId`; one journal per workspace and event, replays return
+  `duplicate: true`, changed content `409 CRM_EVENT_CONFLICT`, posting off `403 POSTING_DISABLED`).
+
+`PLATFORM_PROVISIONING_ENABLED` and `CRM_INTEGRATION_POSTING_ENABLED` stay **false** in production.
+
 ## Structure
 
 | Path              | What                                                            |
