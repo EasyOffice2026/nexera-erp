@@ -70,8 +70,9 @@ model Tenant {
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  users     User[]
-  companies Company[]
+  users           User[]
+  companies       Company[]
+  crmIntegrations CrmIntegration[]
 
   @@map("tenants")
 }
@@ -89,8 +90,9 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id])
-  refreshTokens RefreshToken[]
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  refreshTokens   RefreshToken[]
+  crmIntegrations CrmIntegration[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -126,14 +128,15 @@ model Company {
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant       Tenant         @relation(fields: [tenantId], references: [id])
-  brands       Brand[]
-  branches     Branch[]
-  accounts     Account[]
-  fiscalYears  FiscalYear[]
-  periods      Period[]
-  journals     JournalEntry[]
-  bankAccounts BankAccount[]
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  brands         Brand[]
+  branches       Branch[]
+  accounts       Account[]
+  fiscalYears    FiscalYear[]
+  periods        Period[]
+  journals       JournalEntry[]
+  bankAccounts   BankAccount[]
+  crmIntegration CrmIntegration?
 
   @@unique([tenantId, crNumber])
   @@index([tenantId])
@@ -240,28 +243,29 @@ model Period {
 
 // Posted entries are never changed or deleted. A mistake is corrected by a reversal.
 model JournalEntry {
-  id           String        @id @default(uuid(7)) @db.Uuid
-  tenantId     String        @map("tenant_id") @db.Uuid
-  companyId    String        @map("company_id") @db.Uuid
-  periodId     String        @map("period_id") @db.Uuid
+  id             String        @id @default(uuid(7)) @db.Uuid
+  tenantId       String        @map("tenant_id") @db.Uuid
+  companyId      String        @map("company_id") @db.Uuid
+  periodId       String        @map("period_id") @db.Uuid
   // Given when the entry is posted, in order, per company.
-  number       Int?
-  date         DateTime      @db.Date
-  description  String
-  reference    String        @default("")
-  source       JournalSource @default(MANUAL)
+  number         Int?
+  date           DateTime      @db.Date
+  description    String
+  reference      String        @default("")
+  source         JournalSource @default(MANUAL)
   // The system and its own id for entries that arrive through the integration API.
-  sourceSystem String?       @map("source_system")
-  externalId   String?       @map("external_id")
-  status       JournalStatus @default(DRAFT)
-  totalDebit   Decimal       @default(0) @map("total_debit") @db.Decimal(18, 3)
-  totalCredit  Decimal       @default(0) @map("total_credit") @db.Decimal(18, 3)
-  reversesId   String?       @unique @map("reverses_id") @db.Uuid
-  createdById  String?       @map("created_by_id") @db.Uuid
-  postedById   String?       @map("posted_by_id") @db.Uuid
-  postedAt     DateTime?     @map("posted_at") @db.Timestamptz(3)
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sourceSystem   String?       @map("source_system")
+  externalId     String?       @map("external_id")
+  crmPayloadHash String?       @map("crm_payload_hash")
+  status         JournalStatus @default(DRAFT)
+  totalDebit     Decimal       @default(0) @map("total_debit") @db.Decimal(18, 3)
+  totalCredit    Decimal       @default(0) @map("total_credit") @db.Decimal(18, 3)
+  reversesId     String?       @unique @map("reverses_id") @db.Uuid
+  createdById    String?       @map("created_by_id") @db.Uuid
+  postedById     String?       @map("posted_by_id") @db.Uuid
+  postedAt       DateTime?     @map("posted_at") @db.Timestamptz(3)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   company    Company       @relation(fields: [companyId], references: [id])
   period     Period        @relation(fields: [periodId], references: [id])
@@ -273,6 +277,22 @@ model JournalEntry {
   @@unique([companyId, sourceSystem, externalId])
   @@index([companyId, date])
   @@map("journal_entries")
+}
+
+model CrmIntegration {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  companyId   String   @unique @map("company_id") @db.Uuid
+  createdById String   @map("created_by_id") @db.Uuid
+  tokenHash   String   @unique @map("token_hash")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  company   Company @relation(fields: [companyId], references: [id])
+  createdBy User    @relation(fields: [createdById], references: [id])
+
+  @@map("crm_integrations")
 }
 
 model JournalLine {

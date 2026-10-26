@@ -7,6 +7,34 @@ amounts in KWD to the fils.
 Start with [docs/HANDOVER.md](docs/HANDOVER.md) (decisions, state, next steps) and
 [docs/phase1-design.md](docs/phase1-design.md) (tenancy, chart of accounts, posting rules).
 
+## CRM accounting connector
+
+CRM stays a separate one-company application with its own login. The CRM backend can read this
+ERP organization's mapped legal-company accounting without exposing an ERP password or token to
+the browser. This connector currently supports **KWD** only.
+
+- Provision/rotate: `POST /api/v1/companies/:companyId/crm-integration`, using a normal ERP
+  access token with `integrations.manage` permission. The response is `no-store` and returns a
+  random service token **once**. Store it in the CRM server's secret configuration, never in Git.
+  Rotating invalidates the old credential while keeping the integration identity/idempotency namespace.
+- Service authentication: `Authorization: Bearer <service token>`. Only its SHA-256 hash is stored.
+  The integration, organization, company and provisioning user must remain active and authorized.
+  Request parameters cannot select another company/tenant.
+- Read endpoints under `/api/v1/integrations/crm`: `GET /connection`, `/accounts`, `/journals`
+  and `/trial-balance?from=YYYY-MM-DD&to=YYYY-MM-DD`. Normal journal pagination and report dates apply.
+- Posting: `POST /api/v1/integrations/crm/journals`, with `currency: "KWD"`, a stable `externalId`,
+  `date`, `description`, optional `reference` and journal `lines` (accountId, optional branchId,
+  description, debit, credit). Identical retries return the same journal. Reusing an external ID
+  with different content returns `409 CRM_EVENT_CONFLICT`; amounts are normalized to fils precision.
+  Posting uses existing company locks, open-period checks, account/branch scope, reconciliation
+  locks, numbering and audit rules. Concurrent retries create only one journal.
+
+`CRM_INTEGRATION_POSTING_ENABLED` defaults to **false**. Reconcile historical balances and confirm
+the company/account mapping in CRM before enabling it and CRM's separate `CRM_ERP_SYNC_ENABLED`
+flag. Neither migrations nor provisioning post/import historical financial data. Never enable live
+posting merely to preview the UI. The companion CRM implementation is in
+[crm-system](https://github.com/EasyOffice2026/crm-system/pull/1).
+
 ## Structure
 
 | Path              | What                                                            |

@@ -18,6 +18,7 @@ export interface Config {
   authRateLimit: { windowMs: number; max: number };
   // The built web app, served by the API in production. Not served when unset.
   webDist: string | undefined;
+  crmPostingEnabled: boolean;
 }
 
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -38,6 +39,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).default(7),
     AUTH_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(30),
     WEB_DIST: z.string().min(1).optional(),
+    CRM_INTEGRATION_POSTING_ENABLED: z.enum(['true', 'false']).default('false'),
   });
 
   const values = schema.parse(env);
@@ -63,5 +65,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     },
     authRateLimit: { windowMs: 15 * 60 * 1000, max: values.AUTH_RATE_LIMIT_MAX },
     webDist: values.WEB_DIST,
+    crmPostingEnabled: values.CRM_INTEGRATION_POSTING_ENABLED === 'true',
   };
 }

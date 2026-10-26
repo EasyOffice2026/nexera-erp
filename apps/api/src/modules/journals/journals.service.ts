@@ -165,7 +165,12 @@ export async function requireBankOpen(
   }
 }
 
-export type SystemJournalInput = Omit<JournalInput, 'source'> & { source: JournalSource };
+export type SystemJournalInput = Omit<JournalInput, 'source'> & {
+  source: JournalSource;
+  sourceSystem?: string;
+  externalId?: string;
+  crmPayloadHash?: string;
+};
 
 // Creates and posts a balanced journal in one step, for journals the system makes (for example
 // from a bank statement line). Answers the ids of the entry and of its lines, in order.
@@ -203,6 +208,9 @@ export async function postJournalInTx(
       description: input.description,
       reference: input.reference,
       source: input.source,
+      sourceSystem: input.sourceSystem,
+      externalId: input.externalId,
+      crmPayloadHash: input.crmPayloadHash,
       status: 'POSTED',
       totalDebit: filsToDecimal(totals.debit),
       totalCredit: filsToDecimal(totals.credit),
