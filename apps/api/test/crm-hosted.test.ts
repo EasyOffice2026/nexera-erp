@@ -463,6 +463,31 @@ describe('service credentials', () => {
     expect(posted.status).toBe(401);
     expect((await api.get(`${crm}/receivables`).set(legacy)).status).toBe(401);
   });
+
+  it('refuses legacy tokens for a company bound to a hosted workspace', async () => {
+    const world = await createWorld(prisma, api);
+    const created = await api
+      .post(`/api/v1/companies/${world.company.id}/crm-integration`)
+      .set(world.auth);
+    expect(created.status).toBe(201);
+    const legacy = { authorization: `Bearer ${(created.body as { token: string }).token}` };
+    await prisma.crmWorkspaceBinding.create({
+      data: {
+        workspaceId: randomUUID(),
+        tenantId: world.tenant.id,
+        companyId: world.company.id,
+        chartTemplate: 'general_business_v1',
+        requestHash: sha('bound'),
+      },
+    });
+    expect((await api.get(`${crm}/connection`).set(legacy)).status).toBe(401);
+    expect((await api.post(`${crm}/journals`).set(legacy).send({})).status).toBe(401);
+    const again = await api
+      .post(`/api/v1/companies/${world.company.id}/crm-integration`)
+      .set(world.auth);
+    expect(again.status).toBe(409);
+    expect(errorCode(again)).toBe('COMPANY_HAS_HOSTED_WORKSPACE');
+  });
 });
 
 describe('CRM events', () => {

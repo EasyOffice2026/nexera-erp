@@ -159,6 +159,12 @@ export function createCrmIntegrationRouter(deps: {
       const companyId = parseWith(idSchema, req.params.companyId);
       const company = await findCompany(prisma, actor.tenantId, companyId);
       if (!company.isActive) throw errors.forbidden();
+      if (await prisma.crmWorkspaceBinding.findUnique({ where: { companyId } })) {
+        throw errors.conflict(
+          'COMPANY_HAS_HOSTED_WORKSPACE',
+          'This company is bound to a hosted CRM workspace and cannot use a legacy CRM token',
+        );
+      }
       const token = randomBytes(32).toString('base64url');
       await prisma.$transaction(async (tx) => {
         const row = await tx.crmIntegration.upsert({
@@ -260,6 +266,9 @@ export function createCrmIntegrationRouter(deps: {
       row.company.tenantId !== row.tenantId ||
       !['owner', 'finance_manager'].includes(row.createdBy.role)
     ) {
+      throw errors.unauthenticated();
+    }
+    if (await prisma.crmWorkspaceBinding.findUnique({ where: { companyId: row.companyId } })) {
       throw errors.unauthenticated();
     }
     res.locals.crmIntegration = row;
