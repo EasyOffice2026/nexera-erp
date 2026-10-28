@@ -3,6 +3,8 @@
 #   docker run -p 3000:3000 -e DATABASE_URL=... -e JWT_ACCESS_SECRET=... nexera-erp
 # Migrations run on start (prisma migrate deploy) before the API listens.
 FROM node:24-bookworm-slim AS build
+RUN apt-get update && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/prisma.config.ts apps/api/
@@ -14,6 +16,8 @@ COPY . .
 RUN npm run build
 
 FROM node:24-bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production \
     API_PORT=3000 \
     WEB_DIST=/app/apps/web/dist
