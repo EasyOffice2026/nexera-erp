@@ -35,6 +35,8 @@ import { createReportsRouter } from './modules/reports/reports.router';
 import { createReportsService } from './modules/reports/reports.service';
 import { createUsersRouter } from './modules/users/users.router';
 import { createUsersService } from './modules/users/users.service';
+import { createCrmIntegrationRouter } from './modules/integrations/crm.router';
+import { createPlatformRouter } from './modules/platform/crm-workspaces.router';
 
 export interface AppDeps {
   prisma: PrismaClient;
@@ -114,6 +116,10 @@ export function createApp({ prisma, config, hasher, now, log }: AppDeps) {
   );
   v1.use('/users', auth, createUsersRouter(createUsersService({ prisma, hasher: passwordHasher })));
   v1.use('/companies', auth, createCompaniesRouter(createCompaniesService({ prisma })));
+  const crm = createCrmIntegrationRouter({ prisma, config, ...(now ? { now } : {}) });
+  v1.use('/companies', auth, crm.provision);
+  v1.use('/integrations/crm', crm.service);
+  v1.use('/platform', createPlatformRouter({ prisma, config, ...(now ? { now } : {}) }));
   v1.use(
     '/companies/:companyId/accounts',
     auth,

@@ -70,8 +70,10 @@ model Tenant {
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  users     User[]
-  companies Company[]
+  users           User[]
+  companies       Company[]
+  crmIntegrations CrmIntegration[]
+  crmBinding      CrmWorkspaceBinding?
 
   @@map("tenants")
 }
@@ -89,8 +91,9 @@ model User {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id])
-  refreshTokens RefreshToken[]
+  tenant          Tenant           @relation(fields: [tenantId], references: [id])
+  refreshTokens   RefreshToken[]
+  crmIntegrations CrmIntegration[]
 
   @@unique([tenantId, email])
   @@map("users")
@@ -126,14 +129,18 @@ model Company {
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  tenant       Tenant         @relation(fields: [tenantId], references: [id])
-  brands       Brand[]
-  branches     Branch[]
-  accounts     Account[]
-  fiscalYears  FiscalYear[]
-  periods      Period[]
-  journals     JournalEntry[]
-  bankAccounts BankAccount[]
+  tenant         Tenant               @relation(fields: [tenantId], references: [id])
+  brands         Brand[]
+  branches       Branch[]
+  accounts       Account[]
+  fiscalYears    FiscalYear[]
+  periods        Period[]
+  journals       JournalEntry[]
+  bankAccounts   BankAccount[]
+  crmIntegration CrmIntegration?
+  crmBinding     CrmWorkspaceBinding?
+  postingProfile CrmPostingProfile[]
+  parties        SubledgerParty[]
 
   @@unique([tenantId, crNumber])
   @@index([tenantId])
@@ -191,11 +198,12 @@ model Account {
   createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  company  Company       @relation(fields: [companyId], references: [id])
-  parent   Account?      @relation("AccountTree", fields: [parentId], references: [id])
-  children Account[]     @relation("AccountTree")
+  company  Company             @relation(fields: [companyId], references: [id])
+  parent   Account?            @relation("AccountTree", fields: [parentId], references: [id])
+  children Account[]           @relation("AccountTree")
   lines    JournalLine[]
   bank     BankAccount?
+  profiles CrmPostingProfile[]
 
   @@unique([companyId, code])
   @@map("accounts")
@@ -240,28 +248,29 @@ model Period {
 
 // Posted entries are never changed or deleted. A mistake is corrected by a reversal.
 model JournalEntry {
-  id           String        @id @default(uuid(7)) @db.Uuid
-  tenantId     String        @map("tenant_id") @db.Uuid
-  companyId    String        @map("company_id") @db.Uuid
-  periodId     String        @map("period_id") @db.Uuid
+  id             String        @id @default(uuid(7)) @db.Uuid
+  tenantId       String        @map("tenant_id") @db.Uuid
+  companyId      String        @map("company_id") @db.Uuid
+  periodId       String        @map("period_id") @db.Uuid
   // Given when the entry is posted, in order, per company.
-  number       Int?
-  date         DateTime      @db.Date
-  description  String
-  reference    String        @default("")
-  source       JournalSource @default(MANUAL)
+  number         Int?
+  date           DateTime      @db.Date
+  description    String
+  reference      String        @default("")
+  source         JournalSource @default(MANUAL)
   // The system and its own id for entries that arrive through the integration API.
-  sourceSystem String?       @map("source_system")
-  externalId   String?       @map("external_id")
-  status       JournalStatus @default(DRAFT)
-  totalDebit   Decimal       @default(0) @map("total_debit") @db.Decimal(18, 3)
-  totalCredit  Decimal       @default(0) @map("total_credit") @db.Decimal(18, 3)
-  reversesId   String?       @unique @map("reverses_id") @db.Uuid
-  createdById  String?       @map("created_by_id") @db.Uuid
-  postedById   String?       @map("posted_by_id") @db.Uuid
-  postedAt     DateTime?     @map("posted_at") @db.Timestamptz(3)
-  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  sourceSystem   String?       @map("source_system")
+  externalId     String?       @map("external_id")
+  crmPayloadHash String?       @map("crm_payload_hash")
+  status         JournalStatus @default(DRAFT)
+  totalDebit     Decimal       @default(0) @map("total_debit") @db.Decimal(18, 3)
+  totalCredit    Decimal       @default(0) @map("total_credit") @db.Decimal(18, 3)
+  reversesId     String?       @unique @map("reverses_id") @db.Uuid
+  createdById    String?       @map("created_by_id") @db.Uuid
+  postedById     String?       @map("posted_by_id") @db.Uuid
+  postedAt       DateTime?     @map("posted_at") @db.Timestamptz(3)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   company    Company       @relation(fields: [companyId], references: [id])
   period     Period        @relation(fields: [periodId], references: [id])
@@ -275,12 +284,119 @@ model JournalEntry {
   @@map("journal_entries")
 }
 
+model CrmIntegration {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  companyId   String   @unique @map("company_id") @db.Uuid
+  createdById String   @map("created_by_id") @db.Uuid
+  tokenHash   String   @unique @map("token_hash")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
+  company   Company @relation(fields: [companyId], references: [id])
+  createdBy User    @relation(fields: [createdById], references: [id])
+
+  @@map("crm_integrations")
+}
+
+enum CrmBindingStatus {
+  active
+  suspended
+
+  @@map("crm_binding_status")
+}
+
+enum CrmCredentialStatus {
+  active
+  revoked
+
+  @@map("crm_credential_status")
+}
+
+// A hosted CRM workspace and the tenant and legal company provisioned for it, one to one.
+model CrmWorkspaceBinding {
+  id            String           @id @default(uuid(7)) @db.Uuid
+  // The workspace id of the CRM control plane.
+  workspaceId   String           @unique @map("workspace_id") @db.Uuid
+  tenantId      String           @unique @map("tenant_id") @db.Uuid
+  companyId     String           @unique @map("company_id") @db.Uuid
+  status        CrmBindingStatus @default(active)
+  chartTemplate String           @map("chart_template")
+  // SHA-256 of the canonical provisioning request, so a retry must ask for the same thing.
+  requestHash   String           @map("request_hash")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  tenant      Tenant                 @relation(fields: [tenantId], references: [id])
+  company     Company                @relation(fields: [companyId], references: [id])
+  credentials CrmServiceCredential[]
+
+  @@map("crm_workspace_bindings")
+}
+
+// A service token of a workspace's CRM backend. The CRM makes the token; only its hash is here.
+model CrmServiceCredential {
+  // Chosen by the CRM, so a retried registration finds its own row.
+  id         String              @id @db.Uuid
+  bindingId  String              @map("binding_id") @db.Uuid
+  tokenHash  String              @unique @map("token_hash")
+  status     CrmCredentialStatus @default(active)
+  createdAt  DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  revokedAt  DateTime?           @map("revoked_at") @db.Timestamptz(3)
+  lastUsedAt DateTime?           @map("last_used_at") @db.Timestamptz(3)
+
+  binding CrmWorkspaceBinding @relation(fields: [bindingId], references: [id])
+
+  @@index([bindingId])
+  @@map("crm_service_credentials")
+}
+
+// The account the CRM events of a company post to, one per role (receivable, revenue, ...).
+model CrmPostingProfile {
+  id        String   @id @default(uuid(7)) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  role      String
+  accountId String   @map("account_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company Company @relation(fields: [companyId], references: [id])
+  account Account @relation(fields: [accountId], references: [id])
+
+  @@unique([companyId, role])
+  @@map("crm_posting_profiles")
+}
+
+// A customer of a source system. Its receivable lines share the one control account and carry
+// the party, so there is no ledger account per customer.
+model SubledgerParty {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  tenantId     String   @map("tenant_id") @db.Uuid
+  companyId    String   @map("company_id") @db.Uuid
+  sourceSystem String   @map("source_system")
+  externalRef  String   @map("external_ref")
+  name         String
+  kind         String
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  company Company       @relation(fields: [companyId], references: [id])
+  lines   JournalLine[]
+
+  @@unique([companyId, sourceSystem, externalRef])
+  @@map("subledger_parties")
+}
+
 model JournalLine {
   id          String  @id @default(uuid(7)) @db.Uuid
   entryId     String  @map("entry_id") @db.Uuid
   lineNo      Int     @map("line_no")
   accountId   String  @map("account_id") @db.Uuid
   branchId    String? @map("branch_id") @db.Uuid
+  // The customer of a receivable line posted by a hosted CRM workspace.
+  partyId     String? @map("party_id") @db.Uuid
   description String  @default("")
   debit       Decimal @default(0) @db.Decimal(18, 3)
   credit      Decimal @default(0) @db.Decimal(18, 3)
@@ -288,10 +404,12 @@ model JournalLine {
   entry    JournalEntry       @relation(fields: [entryId], references: [id], onDelete: Cascade)
   account  Account            @relation(fields: [accountId], references: [id])
   branch   Branch?            @relation(fields: [branchId], references: [id])
+  party    SubledgerParty?    @relation(fields: [partyId], references: [id], onDelete: Restrict)
   bankLine BankStatementLine?
 
   @@unique([entryId, lineNo])
   @@index([accountId])
+  @@index([partyId])
   @@map("journal_lines")
 }
 

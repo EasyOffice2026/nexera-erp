@@ -40,6 +40,14 @@ export interface Actor {
   ip: string | null;
 }
 
+// Who a system posting is made for: a person, or a CRM backend that has no user row. Service
+// postings leave created_by/posted_by empty and say in the audit data which credential acted.
+export type PostingActor = Omit<Actor, 'userId'> & {
+  userId: string | null;
+  principal?: 'user' | 'crm_service';
+  auditData?: Record<string, string>;
+};
+
 // The person asking. Every service call is limited to their tenant.
 export function actorOf(req: Request): Actor {
   if (!req.auth) throw errors.unauthenticated();

@@ -1,0 +1,32 @@
+# Isolated CRM demonstration accounting service. Never deploy this to nexera-erp.
+app = "nexera-crm-erp-stg"
+primary_region = "sin"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  API_PORT = "3000"
+  TRUST_PROXY = "1"
+  CRM_INTEGRATION_POSTING_ENABLED = "true"
+  PLATFORM_PROVISIONING_ENABLED = "true"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "60s"
+    interval = "30s"
+    timeout = "5s"
+    method = "GET"
+    path = "/api/v1/health"
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory = "512mb"
