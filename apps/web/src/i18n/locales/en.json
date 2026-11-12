@@ -55,7 +55,10 @@
     "reports": "Reports",
     "company": "Company",
     "xbrl": "XBRL",
-    "bank": "Bank"
+    "bank": "Bank",
+    "pos": "POS",
+    "groupAccounting": "Accounting",
+    "groupOperations": "Operations"
   },
   "dashboard": {
     "thisMonth": "This month",
@@ -404,5 +407,57 @@
     "bookOnlyTitle": "In the books, not yet at the bank (for example cheques not yet cashed)",
     "unmatchedCount_one": "{{count}} line not matched",
     "unmatchedCount_other": "{{count}} lines not matched"
+  },
+  "pos": {
+    "title": "POS link",
+    "intro": "Each POS branch posts its business days (sales, payments, commissions, refunds, cash over/short, cost of sales, waste) and goods receipts to the ERP branch it is linked to.",
+    "open": "Open POS",
+    "connection": "Connection",
+    "apiUrl": "POS API address",
+    "webUrl": "POS app address",
+    "key": "Integration key",
+    "newKey": "New integration key (leave empty to keep)",
+    "lastSync": "Last sync",
+    "branchLinks": "Branches",
+    "branchLinksHint": "Link each POS branch to the ERP company branch it belongs to.",
+    "posBrand": "POS brand",
+    "posBranch": "POS branch",
+    "erpBranch": "ERP branch",
+    "notLinked": "Not linked",
+    "accounts": "Posting accounts",
+    "accountsHint": "The account each POS figure posts to in this company.",
+    "figure": "Figure",
+    "account": "Account",
+    "noAccount": "Choose an account",
+    "sync": "Sync",
+    "syncHint": "The last three days are also read automatically. A day that changed in the POS is reversed and posted again.",
+    "syncNow": "Sync now",
+    "syncResult": "Posted {{posted}}, unchanged {{unchanged}}, waiting for accounts {{unmapped}}, failed {{failed}}, branches not linked {{unlinked}}",
+    "documents": "Posted from the POS",
+    "noDocuments": "Nothing synced yet.",
+    "businessDate": "Business date",
+    "kind": "Kind",
+    "amount": "Amount",
+    "kinds": {
+      "day": "Business day",
+      "grn": "Goods receipt"
+    },
+    "status": {
+      "posted": "Posted",
+      "unmapped": "Waiting for accounts",
+      "failed": "Failed"
+    },
+    "role": {
+      "sales": "Sales",
+      "discounts": "Discounts",
+      "refunds": "Refunds",
+      "commission": "Delivery app commission",
+      "cash_over_short": "Cash over / short",
+      "cost_of_sales": "Cost of sales",
+      "inventory": "Inventory",
+      "waste": "Waste and count differences",
+      "payable": "Suppliers (payable)",
+      "method": "Payments: {{method}}"
+    }
   }
 }

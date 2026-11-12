@@ -15,6 +15,9 @@ const sections = [
   'xbrl',
 ] as const;
 
+// Groups of the one platform's menu (docs/unified-platform.md); more join as modules are added.
+const groupClass = 'ms-2 text-xs font-medium uppercase tracking-wide text-slate-400';
+
 function navClass({ isActive }: { isActive: boolean }) {
   return `rounded-md px-3 py-1.5 text-sm ${
     isActive ? 'bg-slate-900 text-white' : 'text-slate-700 hover:bg-slate-200'
@@ -52,13 +55,21 @@ export function Layout() {
               </option>
             ))}
           </select>
-          <nav className="flex flex-wrap gap-1">
-            {companyId &&
-              sections.map((section) => (
-                <NavLink key={section} to={`/c/${companyId}/${section}`} className={navClass}>
-                  {t(`nav.${section}`)}
-                </NavLink>
-              ))}
+          <nav className="flex flex-wrap items-center gap-1">
+            {companyId && (
+              <>
+                <span className={groupClass}>{t('nav.groupAccounting')}</span>
+                {sections.map((section) => (
+                  <NavLink key={section} to={`/c/${companyId}/${section}`} className={navClass}>
+                    {t(`nav.${section}`)}
+                  </NavLink>
+                ))}
+              </>
+            )}
+            <span className={groupClass}>{t('nav.groupOperations')}</span>
+            <NavLink to="/pos" className={navClass}>
+              {t('nav.pos')}
+            </NavLink>
             <NavLink to="/companies" className={navClass}>
               {t('nav.companies')}
             </NavLink>

@@ -44,7 +44,7 @@ export interface Actor {
 // postings leave created_by/posted_by empty and say in the audit data which credential acted.
 export type PostingActor = Omit<Actor, 'userId'> & {
   userId: string | null;
-  principal?: 'user' | 'crm_service';
+  principal?: 'user' | 'crm_service' | 'pos_sync';
   auditData?: Record<string, string>;
 };
 

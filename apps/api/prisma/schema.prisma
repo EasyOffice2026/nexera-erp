@@ -555,3 +555,65 @@ model BankReconciliation {
   @@unique([bankAccountId, asOf])
   @@map("bank_reconciliations")
 }
+
+// The link with the restaurants' POS (docs/unified-platform.md). One POS per tenant. The ERP
+// reads the POS's accounting figures with an integration key, kept encrypted.
+model PosConnection {
+  id            String    @id @default(uuid(7)) @db.Uuid
+  tenantId      String    @unique @map("tenant_id") @db.Uuid
+  apiUrl        String    @map("api_url")
+  webUrl        String    @map("web_url")
+  keyCiphertext String    @map("key_ciphertext")
+  lastSyncAt    DateTime? @map("last_sync_at") @db.Timestamptz(3)
+  lastError     String?   @map("last_error")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt     DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  @@map("pos_connections")
+}
+
+// Which ERP branch (and so company) a POS branch posts to.
+model PosBranchLink {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  posBranchId String   @map("pos_branch_id") @db.Uuid
+  posBrandId  String   @map("pos_brand_id") @db.Uuid
+  companyId   String   @map("company_id") @db.Uuid
+  branchId    String   @map("branch_id") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  @@unique([tenantId, posBranchId])
+  @@map("pos_branch_links")
+}
+
+// The account a company posts each kind of POS figure to (role "sales", "method:knet", …).
+model PosAccount {
+  id        String @id @default(uuid(7)) @db.Uuid
+  tenantId  String @map("tenant_id") @db.Uuid
+  companyId String @map("company_id") @db.Uuid
+  role      String
+  accountId String @map("account_id") @db.Uuid
+
+  @@unique([companyId, role])
+  @@map("pos_accounts")
+}
+
+// Each POS business day or goods receipt the ERP has seen, and the journal it posted.
+model PosDocument {
+  id             String   @id @default(uuid(7)) @db.Uuid
+  tenantId       String   @map("tenant_id") @db.Uuid
+  companyId      String   @map("company_id") @db.Uuid
+  externalId     String   @map("external_id")
+  kind           String
+  businessDate   DateTime @map("business_date") @db.Date
+  payloadHash    String   @map("payload_hash")
+  amount         Decimal  @db.Decimal(15, 3)
+  journalEntryId String?  @map("journal_entry_id") @db.Uuid
+  status         String
+  error          String?
+  syncedAt       DateTime @map("synced_at") @db.Timestamptz(3)
+
+  @@unique([companyId, externalId])
+  @@index([tenantId, businessDate])
+  @@map("pos_documents")
+}
