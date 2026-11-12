@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import type { HashProfileName } from './lib/password';
 
@@ -19,6 +20,19 @@ export interface Config {
   // The built web app, served by the API in production. Not served when unset.
   webDist: string | undefined;
   crmPostingEnabled: boolean;
+  // The address people open the ERP at; the issuer of single sign-on tickets.
+  publicUrl: string;
+  // The link with the POS (docs/unified-platform.md).
+  pos: {
+    // 32 bytes that encrypt the POS integration key at rest.
+    encryptionKey: Buffer;
+    // Ed25519 private key (PKCS#8 PEM) for single sign-on tickets; made at start when unset.
+    ssoPrivateKeyPem: string | undefined;
+    // The audience of the tickets; the POS's SSO_AUDIENCE.
+    ssoAudience: string;
+    // Minutes between automatic syncs of every connected POS; 0 turns it off.
+    syncIntervalMinutes: number;
+  };
   // Server-to-server provisioning of hosted CRM workspaces. Off unless turned on.
   platform: {
     provisioningEnabled: boolean;
@@ -71,6 +85,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     PLATFORM_PROVISIONING_ENABLED: z.enum(['true', 'false']).default('false'),
     PLATFORM_API_KEYS: z.string().default(''),
     PLATFORM_RATE_LIMIT_MAX: z.coerce.number().int().min(1).default(30),
+    PUBLIC_URL: z.string().url().default('http://localhost:5173'),
+    INTEGRATION_ENCRYPTION_KEY: z
+      .string()
+      .regex(/^[0-9a-f]{64}$/, 'INTEGRATION_ENCRYPTION_KEY must be 64 hex characters')
+      .optional(),
+    SSO_PRIVATE_KEY: z.string().min(1).optional(),
+    POS_SSO_AUDIENCE: z.string().min(1).default('pos'),
+    POS_SYNC_INTERVAL_MINUTES: z.coerce.number().int().min(0).default(0),
   });
 
   const values = schema.parse(env);
@@ -81,6 +103,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (production && values.JWT_ACCESS_SECRET === DEV_JWT_SECRET) {
     throw new Error('JWT_ACCESS_SECRET must be a secret of your own in production.');
   }
+
+  if (production && !values.INTEGRATION_ENCRYPTION_KEY) {
+    throw new Error('INTEGRATION_ENCRYPTION_KEY must be set in production.');
+  }
+  const encryptionKey = values.INTEGRATION_ENCRYPTION_KEY
+    ? Buffer.from(values.INTEGRATION_ENCRYPTION_KEY, 'hex')
+    : createHash('sha256').update('dev-only-integration-encryption-key').digest();
 
   const platformKeys = parsePlatformKeys(values.PLATFORM_API_KEYS);
   if (values.PLATFORM_PROVISIONING_ENABLED === 'true' && platformKeys.length === 0) {
@@ -102,6 +131,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     authRateLimit: { windowMs: 15 * 60 * 1000, max: values.AUTH_RATE_LIMIT_MAX },
     webDist: values.WEB_DIST,
     crmPostingEnabled: values.CRM_INTEGRATION_POSTING_ENABLED === 'true',
+    publicUrl: values.PUBLIC_URL.replace(/\/$/, ''),
+    pos: {
+      encryptionKey,
+      ssoPrivateKeyPem: values.SSO_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+      ssoAudience: values.POS_SSO_AUDIENCE,
+      syncIntervalMinutes: values.POS_SYNC_INTERVAL_MINUTES,
+    },
     platform: {
       provisioningEnabled: values.PLATFORM_PROVISIONING_ENABLED === 'true',
       apiKeys: platformKeys,

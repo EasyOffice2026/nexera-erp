@@ -4,7 +4,10 @@ import express, { type RequestHandler } from 'express';
 import type { Config } from './config';
 import { createPasswordHasher, hashProfiles, type PasswordHasher } from './lib/password';
 import type { PrismaClient } from './lib/prisma';
+import { createSsoSigner } from './lib/sso';
 import { createTokenService } from './lib/tokens';
+import { createPosRouter } from './modules/pos/pos.router';
+import { createPosService, type PosService } from './modules/pos/pos.service';
 import { authenticate } from './middleware/authenticate';
 import { errorHandler, notFoundHandler } from './middleware/error-handler';
 import { type LogLine, requestLog, writeJsonLine } from './middleware/request-log';
@@ -47,6 +50,8 @@ export interface AppDeps {
   now?: () => Date;
   // Where the line of each request goes: standard output, or nowhere while testing.
   log?: (line: LogLine) => void;
+  // Tests answer for the POS instead of calling it (docs/unified-platform.md).
+  posFetch?: typeof fetch;
 }
 
 // The built web app: files under /assets are kept for a year (their names change with each
@@ -85,7 +90,7 @@ function serveWeb(dist: string, https: boolean): RequestHandler[] {
   return [headers, files, fallback];
 }
 
-export function createApp({ prisma, config, hasher, now, log }: AppDeps) {
+export function createApp({ prisma, config, hasher, now, log, posFetch }: AppDeps) {
   const app = express();
   const https = config.refreshToken.cookieSecure;
   app.disable('x-powered-by');
@@ -103,6 +108,18 @@ export function createApp({ prisma, config, hasher, now, log }: AppDeps) {
   const tokens = createTokenService(config);
   const passwordHasher = hasher ?? createPasswordHasher(hashProfiles[config.passwordHashProfile]);
   const auth = authenticate(tokens);
+  const sso = createSsoSigner({
+    issuer: config.publicUrl,
+    privateKeyPem: config.pos.ssoPrivateKeyPem,
+  });
+  const posService: PosService = createPosService({
+    prisma,
+    config,
+    sso,
+    now: now ?? (() => new Date()),
+    fetch: posFetch ?? fetch,
+  });
+  app.locals.posService = posService;
 
   const v1 = express.Router();
   v1.use('/health', createHealthRouter(prisma));
@@ -120,6 +137,11 @@ export function createApp({ prisma, config, hasher, now, log }: AppDeps) {
   v1.use('/companies', auth, crm.provision);
   v1.use('/integrations/crm', crm.service);
   v1.use('/platform', createPlatformRouter({ prisma, config, ...(now ? { now } : {}) }));
+  // The ERP's public keys, for the POS to check single sign-on tickets.
+  v1.get('/sso/jwks.json', async (_req, res) => {
+    res.set('Cache-Control', 'public, max-age=300').json(await sso.jwks());
+  });
+  v1.use('/pos', auth, createPosRouter(posService));
   v1.use(
     '/companies/:companyId/accounts',
     auth,
