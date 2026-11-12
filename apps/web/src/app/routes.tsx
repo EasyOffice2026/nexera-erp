@@ -1,3 +1,4 @@
+import { PosPage } from '../features/pos/PosPage';
 import { Navigate, type RouteObject } from 'react-router';
 import { ErrorText, Loading } from '../components/ui';
 import { AccountsPage } from '../features/accounts/AccountsPage';
@@ -34,6 +35,7 @@ export const routes: RouteObject[] = [
         children: [
           { index: true, element: <Home /> },
           { path: 'companies', element: <CompaniesPage /> },
+          { path: 'pos', element: <PosPage /> },
           {
             path: 'c/:companyId',
             children: [
