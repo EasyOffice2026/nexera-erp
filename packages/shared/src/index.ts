@@ -3,6 +3,7 @@ export * from './auth';
 export * from './companies';
 export * from './errors';
 export * from './journals';
+export * from './ledger';
 export * from './localized';
 export * from './money';
 export * from './periods';

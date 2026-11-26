@@ -2,6 +2,7 @@ import type { AccessTokenClaims, Permission } from '@nexera/shared';
 import { hasPermission } from '@nexera/shared';
 import type { Request, RequestHandler } from 'express';
 import { errors } from '../lib/http-errors';
+import type { PrismaClient } from '../lib/prisma';
 import type { TokenService } from '../lib/tokens';
 
 declare module 'express-serve-static-core' {
@@ -11,13 +12,25 @@ declare module 'express-serve-static-core' {
 }
 
 // Reads the bearer token and puts the person's claims on the request.
-export function authenticate(tokens: TokenService): RequestHandler {
+export function authenticate(tokens: TokenService, prisma: PrismaClient): RequestHandler {
   return async (req, _res, next) => {
     const [scheme, token] = (req.headers.authorization ?? '').split(' ');
     if (scheme?.toLowerCase() !== 'bearer' || !token) {
       throw errors.unauthenticated();
     }
-    req.auth = await tokens.verifyAccessToken(token);
+    const claims = await tokens.verifyAccessToken(token);
+    const user = await prisma.user.findFirst({
+      where: {
+        id: claims.sub,
+        tenantId: claims.tenantId,
+        isActive: true,
+        sessionVersion: claims.sessionVersion,
+        tenant: { isActive: true },
+      },
+      select: { role: true },
+    });
+    if (!user) throw errors.unauthenticated();
+    req.auth = { ...claims, role: user.role };
     next();
   };
 }

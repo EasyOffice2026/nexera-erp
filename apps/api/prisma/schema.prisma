@@ -76,17 +76,18 @@ model Tenant {
 }
 
 model User {
-  id           String    @id @default(uuid(7)) @db.Uuid
-  tenantId     String    @map("tenant_id") @db.Uuid
-  email        String
-  fullName     String    @map("full_name")
-  passwordHash String    @map("password_hash")
-  role         Role
-  language     Language  @default(en)
-  isActive     Boolean   @default(true) @map("is_active")
-  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(3)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
-  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
+  id             String    @id @default(uuid(7)) @db.Uuid
+  tenantId       String    @map("tenant_id") @db.Uuid
+  email          String
+  fullName       String    @map("full_name")
+  passwordHash   String    @map("password_hash")
+  role           Role
+  language       Language  @default(en)
+  isActive       Boolean   @default(true) @map("is_active")
+  sessionVersion Int       @default(0) @map("session_version")
+  lastLoginAt    DateTime? @map("last_login_at") @db.Timestamptz(3)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @map("updated_at") @db.Timestamptz(3)
 
   tenant        Tenant         @relation(fields: [tenantId], references: [id])
   refreshTokens RefreshToken[]
@@ -96,13 +97,14 @@ model User {
 }
 
 model RefreshToken {
-  id        String    @id @default(uuid(7)) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
+  id             String    @id @default(uuid(7)) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
   // Only the SHA-256 of the token is kept.
-  tokenHash String    @unique @map("token_hash")
-  expiresAt DateTime  @map("expires_at") @db.Timestamptz(3)
-  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(3)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+  tokenHash      String    @unique @map("token_hash")
+  expiresAt      DateTime  @map("expires_at") @db.Timestamptz(3)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamptz(3)
+  sessionVersion Int       @default(0) @map("session_version")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -119,6 +121,7 @@ model Company {
   crNumber           String   @map("cr_number")
   baseCurrency       String   @default("KWD") @map("base_currency")
   fiscalYearEndMonth Int      @default(12) @map("fiscal_year_end_month")
+  nextJournalNumber  Int      @default(1) @map("next_journal_number")
   isActive           Boolean  @default(true) @map("is_active")
   createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt          DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
@@ -132,6 +135,7 @@ model Company {
   journals    JournalEntry[]
 
   @@unique([tenantId, crNumber])
+  @@unique([tenantId, id])
   @@index([tenantId])
   @@map("companies")
 }
@@ -144,9 +148,10 @@ model Brand {
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  company  Company  @relation(fields: [companyId], references: [id])
+  company  Company  @relation(fields: [tenantId, companyId], references: [tenantId, id])
   branches Branch[]
 
+  @@unique([companyId, id])
   @@index([companyId])
   @@map("brands")
 }
@@ -162,11 +167,12 @@ model Branch {
   isActive  Boolean  @default(true) @map("is_active")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  company Company       @relation(fields: [companyId], references: [id])
-  brand   Brand         @relation(fields: [brandId], references: [id])
+  company Company       @relation(fields: [tenantId, companyId], references: [tenantId, id])
+  brand   Brand         @relation(fields: [companyId, brandId], references: [companyId, id])
   lines   JournalLine[]
 
   @@unique([companyId, code])
+  @@unique([companyId, id])
   @@map("branches")
 }
 
@@ -187,12 +193,13 @@ model Account {
   createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  company  Company       @relation(fields: [companyId], references: [id])
-  parent   Account?      @relation("AccountTree", fields: [parentId], references: [id])
+  company  Company       @relation(fields: [tenantId, companyId], references: [tenantId, id])
+  parent   Account?      @relation("AccountTree", fields: [companyId, parentId], references: [companyId, id], onDelete: Restrict)
   children Account[]     @relation("AccountTree")
   lines    JournalLine[]
 
   @@unique([companyId, code])
+  @@unique([companyId, id])
   @@map("accounts")
 }
 
@@ -206,10 +213,11 @@ model FiscalYear {
   status    PeriodStatus @default(OPEN)
   createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
 
-  company Company  @relation(fields: [companyId], references: [id])
+  company Company  @relation(fields: [tenantId, companyId], references: [tenantId, id])
   periods Period[]
 
   @@unique([companyId, startDate])
+  @@unique([companyId, id])
   @@map("fiscal_years")
 }
 
@@ -225,11 +233,12 @@ model Period {
   closedAt     DateTime?    @map("closed_at") @db.Timestamptz(3)
   closedById   String?      @map("closed_by_id") @db.Uuid
 
-  company    Company        @relation(fields: [companyId], references: [id])
-  fiscalYear FiscalYear     @relation(fields: [fiscalYearId], references: [id], onDelete: Cascade)
+  company    Company        @relation(fields: [tenantId, companyId], references: [tenantId, id])
+  fiscalYear FiscalYear     @relation(fields: [companyId, fiscalYearId], references: [companyId, id], onDelete: Cascade)
   journals   JournalEntry[]
 
   @@unique([companyId, startDate])
+  @@unique([companyId, id])
   @@map("periods")
 }
 
@@ -251,20 +260,22 @@ model JournalEntry {
   status       JournalStatus @default(DRAFT)
   totalDebit   Decimal       @default(0) @map("total_debit") @db.Decimal(18, 3)
   totalCredit  Decimal       @default(0) @map("total_credit") @db.Decimal(18, 3)
-  reversesId   String?       @unique @map("reverses_id") @db.Uuid
+  reversesId   String?       @map("reverses_id") @db.Uuid
   createdById  String?       @map("created_by_id") @db.Uuid
   postedById   String?       @map("posted_by_id") @db.Uuid
   postedAt     DateTime?     @map("posted_at") @db.Timestamptz(3)
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  company    Company       @relation(fields: [companyId], references: [id])
-  period     Period        @relation(fields: [periodId], references: [id])
-  reverses   JournalEntry? @relation("Reversal", fields: [reversesId], references: [id])
+  company    Company       @relation(fields: [tenantId, companyId], references: [tenantId, id])
+  period     Period        @relation(fields: [companyId, periodId], references: [companyId, id])
+  reverses   JournalEntry? @relation("Reversal", fields: [companyId, reversesId], references: [companyId, id], onDelete: Restrict)
   reversedBy JournalEntry? @relation("Reversal")
   lines      JournalLine[]
 
   @@unique([companyId, number])
+  @@unique([companyId, id])
+  @@unique([companyId, reversesId])
   @@unique([companyId, sourceSystem, externalId])
   @@index([companyId, date])
   @@map("journal_entries")
@@ -272,6 +283,7 @@ model JournalEntry {
 
 model JournalLine {
   id          String  @id @default(uuid(7)) @db.Uuid
+  companyId   String  @map("company_id") @db.Uuid
   entryId     String  @map("entry_id") @db.Uuid
   lineNo      Int     @map("line_no")
   accountId   String  @map("account_id") @db.Uuid
@@ -280,9 +292,9 @@ model JournalLine {
   debit       Decimal @default(0) @db.Decimal(18, 3)
   credit      Decimal @default(0) @db.Decimal(18, 3)
 
-  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
-  account Account      @relation(fields: [accountId], references: [id])
-  branch  Branch?      @relation(fields: [branchId], references: [id])
+  entry   JournalEntry @relation(fields: [companyId, entryId], references: [companyId, id], onDelete: Cascade)
+  account Account      @relation(fields: [companyId, accountId], references: [companyId, id])
+  branch  Branch?      @relation(fields: [companyId, branchId], references: [companyId, id], onDelete: Restrict)
 
   @@unique([entryId, lineNo])
   @@index([accountId])
