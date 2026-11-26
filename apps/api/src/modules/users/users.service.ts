@@ -46,26 +46,30 @@ export function createUsersService(deps: { prisma: PrismaClient; hasher: Passwor
     },
 
     async create(actor: Actor, input: CreateUserInput): Promise<UserView> {
+      const passwordHash = await hasher.hash(input.password);
       try {
-        const user = await prisma.user.create({
-          data: {
+        const user = await prisma.$transaction(async (tx) => {
+          const user = await tx.user.create({
+            data: {
+              tenantId: actor.tenantId,
+              email: input.email,
+              fullName: input.fullName,
+              role: input.role,
+              language: input.language,
+              passwordHash,
+            },
+            select,
+          });
+          await writeAudit(tx, {
             tenantId: actor.tenantId,
-            email: input.email,
-            fullName: input.fullName,
-            role: input.role,
-            language: input.language,
-            passwordHash: await hasher.hash(input.password),
-          },
-          select,
-        });
-        await writeAudit(prisma, {
-          tenantId: actor.tenantId,
-          userId: actor.userId,
-          action: 'user.create',
-          entityType: 'user',
-          entityId: user.id,
-          data: { email: user.email, role: user.role },
-          ip: actor.ip,
+            userId: actor.userId,
+            action: 'user.create',
+            entityType: 'user',
+            entityId: user.id,
+            data: { email: user.email, role: user.role },
+            ip: actor.ip,
+          });
+          return user;
         });
         return toView(user);
       } catch (error) {
@@ -77,8 +81,6 @@ export function createUsersService(deps: { prisma: PrismaClient; hasher: Passwor
     },
 
     async update(actor: Actor, id: string, input: UpdateUserInput): Promise<UserView> {
-      const existing = await prisma.user.findFirst({ where: { id, tenantId: actor.tenantId } });
-      if (!existing) throw errors.notFound('User');
       // Nobody can lock themselves out by demoting or deactivating their own account.
       if (
         id === actor.userId &&
@@ -86,35 +88,46 @@ export function createUsersService(deps: { prisma: PrismaClient; hasher: Passwor
       ) {
         throw errors.conflict('SELF_CHANGE', 'You cannot remove your own owner access');
       }
-      const user = await prisma.user.update({
-        where: { id },
-        data: {
-          fullName: input.fullName,
-          role: input.role,
-          isActive: input.isActive,
-          language: input.language,
-          ...(input.password ? { passwordHash: await hasher.hash(input.password) } : {}),
-        },
-        select,
-      });
-      if (input.isActive === false || input.password) {
-        await prisma.refreshToken.updateMany({
-          where: { userId: id, revokedAt: null },
-          data: { revokedAt: new Date() },
+      const passwordHash = input.password ? await hasher.hash(input.password) : undefined;
+      const revokeSessions = input.isActive === false || Boolean(passwordHash);
+      const user = await prisma.$transaction(async (tx) => {
+        const existing = await tx.user.findFirst({
+          where: { id, tenantId: actor.tenantId },
+          select: { id: true },
         });
-      }
-      await writeAudit(prisma, {
-        tenantId: actor.tenantId,
-        userId: actor.userId,
-        action: 'user.update',
-        entityType: 'user',
-        entityId: id,
-        data: {
-          role: input.role ?? null,
-          isActive: input.isActive ?? null,
-          password: Boolean(input.password),
-        },
-        ip: actor.ip,
+        if (!existing) throw errors.notFound('User');
+        const user = await tx.user.update({
+          where: { id, tenantId: actor.tenantId },
+          data: {
+            fullName: input.fullName,
+            role: input.role,
+            isActive: input.isActive,
+            language: input.language,
+            ...(passwordHash ? { passwordHash } : {}),
+            ...(revokeSessions ? { sessionVersion: { increment: 1 } } : {}),
+          },
+          select,
+        });
+        if (revokeSessions) {
+          await tx.refreshToken.updateMany({
+            where: { userId: id, revokedAt: null },
+            data: { revokedAt: new Date() },
+          });
+        }
+        await writeAudit(tx, {
+          tenantId: actor.tenantId,
+          userId: actor.userId,
+          action: 'user.update',
+          entityType: 'user',
+          entityId: id,
+          data: {
+            role: input.role ?? null,
+            isActive: input.isActive ?? null,
+            password: Boolean(input.password),
+          },
+          ip: actor.ip,
+        });
+        return user;
       });
       return toView(user);
     },

@@ -40,6 +40,7 @@ export const accessTokenClaimsSchema = z.object({
   sub: z.string().uuid(),
   tenantId: z.string().uuid(),
   role: roleSchema,
+  sessionVersion: z.number().int().nonnegative().default(0),
 });
 export type AccessTokenClaims = z.infer<typeof accessTokenClaimsSchema>;
 

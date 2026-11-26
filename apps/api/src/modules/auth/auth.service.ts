@@ -6,6 +6,7 @@ import {
   type SessionUser,
 } from '@nexera/shared';
 import type { Config } from '../../config';
+import type { Prisma } from '../../generated/prisma/client';
 import { writeAudit } from '../../lib/audit';
 import { errors } from '../../lib/http-errors';
 import type { PasswordHasher } from '../../lib/password';
@@ -32,6 +33,7 @@ interface UserRow {
   fullName: string;
   role: Role;
   language: 'en' | 'ar';
+  sessionVersion: number;
   tenant: { id: string; slug: string; name: string };
 }
 
@@ -53,6 +55,7 @@ const userSelect = {
   fullName: true,
   role: true,
   language: true,
+  sessionVersion: true,
   tenant: { select: { id: true, slug: true, name: true } },
 } as const;
 
@@ -64,16 +67,22 @@ export function createAuthService(deps: {
 }): AuthService {
   const { prisma, hasher, tokens, config } = deps;
 
-  async function issue(user: UserRow): Promise<LoginResult> {
+  async function issue(db: Prisma.TransactionClient, user: UserRow): Promise<LoginResult> {
     const { token, hash } = generateRefreshToken();
     const refreshExpiresAt = new Date(Date.now() + config.refreshToken.ttlDays * 86_400_000);
-    await prisma.refreshToken.create({
-      data: { userId: user.id, tokenHash: hash, expiresAt: refreshExpiresAt },
+    await db.refreshToken.create({
+      data: {
+        userId: user.id,
+        tokenHash: hash,
+        expiresAt: refreshExpiresAt,
+        sessionVersion: user.sessionVersion,
+      },
     });
     const accessToken = await tokens.signAccessToken({
       sub: user.id,
       tenantId: user.tenant.id,
       role: user.role,
+      sessionVersion: user.sessionVersion,
     });
     return {
       session: { accessToken, expiresIn: config.accessToken.ttlSeconds, user: toSessionUser(user) },
@@ -101,16 +110,27 @@ export function createAuthService(deps: {
       if (!valid || !user.isActive || !user.tenant.isActive) {
         throw errors.invalidCredentials();
       }
-      await prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } });
-      await writeAudit(prisma, {
-        tenantId: user.tenant.id,
-        userId: user.id,
-        action: 'auth.login',
-        entityType: 'user',
-        entityId: user.id,
-        ip: meta.ip,
+      return prisma.$transaction(async (tx) => {
+        const matched = await tx.user.updateMany({
+          where: {
+            id: user.id,
+            isActive: true,
+            sessionVersion: user.sessionVersion,
+            tenant: { isActive: true },
+          },
+          data: { lastLoginAt: new Date() },
+        });
+        if (matched.count !== 1) throw errors.invalidCredentials();
+        await writeAudit(tx, {
+          tenantId: user.tenant.id,
+          userId: user.id,
+          action: 'auth.login',
+          entityType: 'user',
+          entityId: user.id,
+          ip: meta.ip,
+        });
+        return issue(tx, user);
       });
-      return issue(user);
     },
 
     async refresh(token) {
@@ -132,16 +152,29 @@ export function createAuthService(deps: {
         stored.revokedAt ||
         stored.expiresAt <= new Date() ||
         !stored.user.isActive ||
+        stored.sessionVersion !== stored.user.sessionVersion ||
         !stored.user.tenant.isActive
       ) {
         throw errors.invalidRefreshToken();
       }
-      // Each refresh token is used once; the next one replaces it.
-      await prisma.refreshToken.update({
-        where: { id: stored.id },
-        data: { revokedAt: new Date() },
+      return prisma.$transaction(async (tx) => {
+        const now = new Date();
+        const consumed = await tx.refreshToken.updateMany({
+          where: {
+            id: stored.id,
+            revokedAt: null,
+            expiresAt: { gt: now },
+            user: {
+              isActive: true,
+              sessionVersion: stored.sessionVersion,
+              tenant: { isActive: true },
+            },
+          },
+          data: { revokedAt: now },
+        });
+        if (consumed.count !== 1) throw errors.invalidRefreshToken();
+        return issue(tx, stored.user);
       });
-      return issue(stored.user);
     },
 
     async logout(token) {

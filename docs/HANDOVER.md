@@ -32,6 +32,9 @@ https://mudawwarah.nexerakw.com/). Do not change that system or its database fro
 
 ## State of the code (first commit)
 
+The list below records the original scaffold. See the [README](../README.md) for current setup and
+implemented ledger workflows.
+
 Done:
 
 - Monorepo: `apps/api`, `apps/web` (package + Vite config only), `packages/shared`.

@@ -51,17 +51,12 @@ export function createAuthRouter(deps: {
   });
 
   router.post('/refresh', limiter, async (req, res) => {
-    try {
-      const result = await service.refresh(readToken(req));
-      res.cookie(cookie.cookieName, result.refreshToken, {
-        ...cookieOptions(),
-        expires: result.refreshExpiresAt,
-      });
-      res.json(result.session);
-    } catch (error) {
-      res.clearCookie(cookie.cookieName, cookieOptions());
-      throw error;
-    }
+    const result = await service.refresh(readToken(req));
+    res.cookie(cookie.cookieName, result.refreshToken, {
+      ...cookieOptions(),
+      expires: result.refreshExpiresAt,
+    });
+    res.json(result.session);
   });
 
   router.post('/logout', async (req, res) => {

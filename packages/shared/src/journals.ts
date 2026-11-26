@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { amountSchema, toFils } from './money';
+import { AMOUNT_PATTERN, amountSchema, toFils } from './money';
 import { isoDateSchema } from './periods';
 
 export const journalStatuses = ['DRAFT', 'POSTED'] as const;
@@ -16,9 +16,15 @@ export const journalLineSchema = z
     debit: amountSchema.default('0'),
     credit: amountSchema.default('0'),
   })
-  .refine((line) => toFils(line.debit) > 0n !== toFils(line.credit) > 0n, {
-    message: 'Each line needs either a debit or a credit',
-  });
+  .refine(
+    (line) =>
+      !AMOUNT_PATTERN.test(line.debit) ||
+      !AMOUNT_PATTERN.test(line.credit) ||
+      toFils(line.debit) > 0n !== toFils(line.credit) > 0n,
+    {
+      message: 'Each line needs either a debit or a credit',
+    },
+  );
 export type JournalLineInput = z.infer<typeof journalLineSchema>;
 
 export const journalInputSchema = z.object({
@@ -40,7 +46,7 @@ export const listJournalsQuerySchema = z.object({
   from: isoDateSchema.optional(),
   to: isoDateSchema.optional(),
   search: z.string().trim().max(100).optional(),
-  page: z.coerce.number().int().min(1).default(1),
+  page: z.coerce.number().int().min(1).max(100_000).default(1),
   pageSize: z.coerce.number().int().min(1).max(200).default(50),
 });
 
